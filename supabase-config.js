@@ -1,0 +1,42 @@
+// supabase-config.js
+// 所有页面共用的 Supabase 客户端初始化文件。
+//
+// ⚠️ 部署前必须修改下面两行：
+//   SUPABASE_URL          -> 在 Supabase 控制台 Project Settings -> API 里找 "Project URL"
+//   SUPABASE_PUBLISHABLE_KEY -> 同一页面里的 "anon public" key（新版叫 publishable key）
+//
+// 这个 key 是"公开"的，专门设计成可以放在前端代码里——
+// 真正的权限控制由数据库的 Row Level Security（RLS）规则决定，不是靠隐藏这个 key。
+// 千万不要把 service_role key 放到这里或任何前端文件里！
+
+const SUPABASE_URL = 'https://zrnmuhgfmczzsiwfxomh.supabase.co';
+const SUPABASE_PUBLISHABLE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inpybm11aGdmbWN6enNpd2Z4b21oIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE4NTQ4MzMsImV4cCI6MjA5NzQzMDgzM30.4Ssfe3UjQYW0LFwHXwj9nhdPm4zhnzsJzf-RX_GxEO0';
+
+const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+
+// 内部邮箱后缀：登录界面还是"用户名+密码"，底层映射成邮箱给 Supabase Auth 用
+const FAKE_EMAIL_DOMAIN = 'lottery.local';
+function usernameToEmail(username) {
+  return `${username}@${FAKE_EMAIL_DOMAIN}`;
+}
+
+// 获取当前登录用户 + 对应的 profile（用户名/角色）
+// 返回 null 表示未登录
+async function getCurrentUserProfile() {
+  const { data: { session } } = await supabaseClient.auth.getSession();
+  if (!session) return null;
+
+  const { data: profile, error } = await supabaseClient
+    .from('profiles')
+    .select('id, username, role, create_time')
+    .eq('id', session.user.id)
+    .single();
+
+  if (error || !profile) return null;
+  return profile;
+}
+
+// 退出登录
+async function logoutCurrentUser() {
+  await supabaseClient.auth.signOut();
+}

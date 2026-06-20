@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>历史数据 - 福利彩票选号系统</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="supabase-config.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif; 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 10px;
+        }
+        .container { 
+            width: 100%;
+            max-width: 400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+        .header { 
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+            padding: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .header h1 { font-size: 18px; font-weight: bold; }
+        .back-btn { 
+            background: rgba(255,255,255,0.2); 
+            border: none; 
+            color: white; 
+            padding: 6px 12px; 
+            border-radius: 5px; 
+            cursor: pointer; 
+            font-size: 14px;
+        }
+        .content { padding: 15px; }
+        .lottery-tabs { 
+            display: flex; 
+            gap: 5px; 
+            margin-bottom: 15px;
+        }
+        .tab-btn { 
+            flex: 1; 
+            padding: 10px; 
+            border: none; 
+            border-radius: 6px; 
+            background: #f8f9fa; 
+            cursor: pointer; 
+            font-size: 13px;
+            transition: all 0.3s;
+        }
+        .tab-btn.active { 
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white; 
+        }
+        .message { 
+            padding: 8px; 
+            border-radius: 5px; 
+            margin-bottom: 10px; 
+            display: none;
+            font-size: 13px;
+        }
+        .message.error { background: #f8d7da; color: #721c24; display: block; }
+        .message.success { background: #d4edda; color: #155724; display: block; }
+        .loading { 
+            text-align: center; 
+            padding: 30px; 
+            color: #999;
+        }
+        .intro-card { 
+            background: #f8f9fa; 
+            padding: 12px; 
+            border-radius: 8px; 
+            margin-bottom: 15px;
+        }
+        .intro-card h3 { 
+            font-size: 15px; 
+            margin-bottom: 8px; 
+            color: #f5576c;
+        }
+        .intro-card p { 
+            font-size: 12px; 
+            line-height: 1.6; 
+            color: #666;
+        }
+        .history-item { 
+            border: 1px solid #e9ecef; 
+            border-radius: 8px; 
+            padding: 10px; 
+            margin-bottom: 8px;
+        }
+        .item-header { 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            margin-bottom: 8px;
+        }
+        .issue-no { 
+            font-weight: bold; 
+            font-size: 13px;
+        }
+        .date { 
+            color: #999; 
+            font-size: 12px;
+        }
+        .balls { 
+            display: flex; 
+            flex-wrap: wrap; 
+            gap: 6px; 
+            align-items: center;
+        }
+        .ball { 
+            width: 28px; 
+            height: 28px; 
+            border-radius: 50%; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            font-size: 12px; 
+            font-weight: bold;
+        }
+        .ball.red { background: #ff4444; color: white; }
+        .ball.blue { background: #4477ff; color: white; }
+        .ball.green { background: #00cc66; color: white; }
+        .ball.yellow { background: #ffcc00; color: #333; }
+        .no-data { 
+            text-align: center; 
+            padding: 30px; 
+            color: #999; 
+            font-size: 14px;
+        }
+        .refresh-btn { 
+            width: 100%; 
+            padding: 10px; 
+            border: none; 
+            border-radius: 6px; 
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white; 
+            font-weight: bold; 
+            cursor: pointer; 
+            margin-bottom: 15px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📊 历史数据</h1>
+            <button class="back-btn" onclick="goBack()">← 返回</button>
+        </div>
+        <div class="content">
+            <div id="messageBox" class="message"></div>
+            
+            <div class="lottery-tabs">
+                <button class="tab-btn active" onclick="changeTab('ssq')">双色球</button>
+                <button class="tab-btn" onclick="changeTab('dlt')">大乐透</button>
+                <button class="tab-btn" onclick="changeTab('kl8')">快乐8</button>
+            </div>
+
+            <button class="refresh-btn" onclick="loadHistory(true)">🔄 刷新数据</button>
+
+            <div id="intro"></div>
+            <div id="historyList"></div>
+        </div>
+    </div>
+
+    <script>
+        const API_KEY = '1a6af2d8d7ddff8d605fd4925b5624c5'; // 请在探数数据(tanshuapi.com)“个人中心”里核对这是不是你账号下真实有效的Key
+        //const HISTORY_URL = 'https://api2.tanshuapi.com/api/caipiao/v1/history'; // 历史开奖接口（能一次返回多期），而不是只返回最新一期的 v1/query
+        const HISTORY_URL = '/tanshu-api/api/caipiao/v1/history';
+        // 探数数据接口要求传数字编号 caipiaoid，不是 ssq/dlt/kl8 字符串
+        const caipiaoIdMap = { ssq: 11, dlt: 14, kl8: 89 };
+
+        // 把接口返回的一条原始记录，转换成页面内部统一使用的数据结构
+        // （这样 lottery.html 里 checkWin()/历史比对逻辑完全不用改）
+        function normalizeItem(raw, lottery) {
+            const mainNums = String(raw.number || '').trim().split(/\s+/).filter(Boolean).map(Number);
+            const referNums = String(raw.refernumber || '').trim().split(/\s+/).filter(Boolean).map(Number);
+            const item = { issue: raw.issueno, date: raw.opendate };
+
+            if (lottery === 'ssq') {
+                item.red = mainNums;    // 6个红球
+                item.blue = referNums;  // 1个蓝球
+            } else if (lottery === 'dlt') {
+                item.front = mainNums;  // 5个前区号码
+                item.back = referNums;  // 2个后区号码
+            } else if (lottery === 'kl8') {
+                item.balls = mainNums;  // 开出的20个号码
+            }
+            return item;
+        }
+
+        const lotteryInfo = {
+            ssq: {
+                name: '双色球', 
+                code: 'ssq',
+                intro: '双色球由6个红球和1个蓝球组成。红球从01-33中选择，蓝球从01-16中选择。每周二、四、日开奖。',
+                prize: [
+                    '一等奖：7个号码全中，奖金额不固定（通常500万以上）',
+                    '二等奖：中6+0，奖金额不固定',
+                    '三等奖：中5+1，奖金3000元',
+                    '四等奖：中5+0或4+1，奖金200元',
+                    '五等奖：中4+0或3+1，奖金10元',
+                    '六等奖：中2+1、1+1或0+1，奖金5元'
+                ]
+            },
+            dlt: {
+                name: '超级大乐透',
+                code: 'dlt',
+                intro: '超级大乐透由5个前区号码和2个后区号码组成。前区从01-35中选择，后区从01-12中选择。每周一、三、六开奖。',
+                prize: [
+                    '一等奖：5+2全中，奖金额不固定',
+                    '二等奖：5+1，奖金额不固定',
+                    '三等奖：5+0或4+2，奖金10000元',
+                    '四等奖：4+1或3+2，奖金3000元',
+                    '五等奖：4+0或3+1或2+2，奖金200元',
+                    '六等奖：3+0或2+1或1+2，奖金100元',
+                    '七等奖：2+0或1+1或0+2，奖金15元'
+                ]
+            },
+            kl8: {
+                name: '快乐8',
+                code: 'kl8',
+                intro: '快乐8从1-80共80个号码中任意选择1-10个号码。每天开奖，开出20个号码。选中号码越多奖金越高。',
+                prize: [
+                    '选10中10：奖金500万元',
+                    '选10中9：奖金8000元',
+                    '选10中8：奖金800元',
+                    '选10中7：奖金80元',
+                    '选10中6：奖金5元',
+                    '选10中5：奖金3元',
+                    '其他选中情况根据玩法规则计算'
+                ]
+            }
+        };
+
+        let currentTab = 'ssq';
+        let cache = {}; // 异步从 Supabase 加载，见 loadCacheFromDB()
+
+        // 从 Supabase 拉取所有彩种的缓存数据，填充到内存里的 cache 对象
+        async function loadCacheFromDB() {
+            const { data, error } = await supabaseClient.from('history_cache').select('lottery, data, updated_at');
+            if (error) {
+                console.error('读取缓存失败', error);
+                return;
+            }
+            cache = {};
+            (data || []).forEach(row => {
+                cache[row.lottery] = {
+                    time: new Date(row.updated_at).getTime(),
+                    data: row.data
+                };
+            });
+        }
+
+        // 把某个彩种的最新数据写回 Supabase（upsert：有就更新，没有就插入）
+        async function saveCacheToDB(lottery, list) {
+            const { error } = await supabaseClient
+                .from('history_cache')
+                .upsert({ lottery, data: list, updated_at: new Date().toISOString() });
+            if (error) console.error('写入缓存失败', error);
+        }
+
+        // 显示消息
+        function showMessage(text, type) {
+            const box = document.getElementById('messageBox');
+            box.className = 'message ' + type;
+            box.textContent = text;
+        }
+
+        // 切换标签
+        function changeTab(lottery) {
+            currentTab = lottery;
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+            renderIntro();
+            renderHistory();
+        }
+
+        // 渲染玩法介绍
+        function renderIntro() {
+            const info = lotteryInfo[currentTab];
+            let html = `
+                <div class="intro-card">
+                    <h3>${info.name}玩法介绍</h3>
+                    <p>${info.intro}</p>
+                    <h3 style="margin-top: 10px;">中奖规则</h3>
+                    <p>${info.prize.map(p => `• ${p}`).join('<br>')}</p>
+                </div>
+            `;
+            document.getElementById('intro').innerHTML = html;
+        }
+
+        // 从API获取历史数据
+        async function loadHistory(force = false) {
+            document.getElementById('historyList').innerHTML = '<div class="loading">正在加载数据...</div>';
+
+            // 如果有缓存且不强制刷新，直接用缓存
+            if (!force && cache[currentTab] && cache[currentTab].data && Date.now() - cache[currentTab].time < 3600000) {
+                renderHistory();
+                showMessage(`使用缓存数据（${cache[currentTab].data.length}条）`, 'success');
+                return;
+            }
+
+            try {
+                const caipiaoid = caipiaoIdMap[currentTab];
+                const url = `${HISTORY_URL}?key=${API_KEY}&caipiaoid=${caipiaoid}&num=20&start=0`;
+                const response = await fetch(url);
+                const data = await response.json();
+
+                if (data.code === 1 && data.data && data.data.list) {
+                    const list = data.data.list.map(raw => normalizeItem(raw, currentTab));
+                    cache[currentTab] = {
+                        time: Date.now(),
+                        data: list
+                    };
+                    await saveCacheToDB(currentTab, list);
+                    renderHistory();
+                    showMessage(`数据更新成功（${list.length}条）`, 'success');
+                } else {
+                    // 接口返回了错误码，把具体错误信息显示出来，方便排查（比如Key不对/没权限/过期等）
+                    if (cache[currentTab] && cache[currentTab].data) {
+                        renderHistory();
+                        showMessage(`接口返回错误（${data.code}：${data.msg || '未知错误'}），暂用缓存数据`, 'error');
+                    } else {
+                        document.getElementById('historyList').innerHTML = '<div class="no-data">暂无数据</div>';
+                        showMessage(`接口返回错误（${data.code}：${data.msg || '获取数据失败'}）`, 'error');
+                    }
+                }
+            } catch (error) {
+                console.error(error);
+                if (cache[currentTab] && cache[currentTab].data) {
+                    renderHistory();
+                    showMessage('网络错误，使用缓存数据（按F12看控制台是否提示CORS跨域被拦截）', 'error');
+                } else {
+                    document.getElementById('historyList').innerHTML = '<div class="no-data">暂无数据</div>';
+                    showMessage('网络错误，获取数据失败（按F12看控制台是否提示CORS跨域被拦截）', 'error');
+                }
+            }
+        }
+
+        // 渲染历史列表
+        function renderHistory() {
+            if (!cache[currentTab] || !cache[currentTab].data || cache[currentTab].data.length === 0) {
+                document.getElementById('historyList').innerHTML = '<div class="no-data">暂无数据，请点击刷新</div>';
+                return;
+            }
+
+            const data = cache[currentTab].data.slice(0, 20); // 只显示最近20期
+            let html = '';
+
+            data.forEach(item => {
+                let ballsHtml = '';
+                if (currentTab === 'ssq') {
+                    // 双色球: 红球(6) + 蓝球(1)
+                    const reds = item.red || [];
+                    const blue = item.blue || [];
+                    reds.forEach(r => ballsHtml += `<span class="ball red">${String(r).padStart(2,'0')}</span>`);
+                    blue.forEach(b => ballsHtml += `<span class="ball blue">${String(b).padStart(2,'0')}</span>`);
+                } else if (currentTab === 'dlt') {
+                    // 大乐透: 前区(5) + 后区(2)
+                    const front = item.front || [];
+                    const back = item.back || [];
+                    front.forEach(r => ballsHtml += `<span class="ball red">${String(r).padStart(2,'0')}</span>`);
+                    back.forEach(b => ballsHtml += `<span class="ball blue">${String(b).padStart(2,'0')}</span>`);
+                } else if (currentTab === 'kl8') {
+                    // 快乐8: 开出20个
+                    const balls = item.balls || [];
+                    balls.forEach(b => ballsHtml += `<span class="ball yellow">${String(b).padStart(2,'0')}</span>`);
+                }
+
+                html += `
+                    <div class="history-item">
+                        <div class="item-header">
+                            <span class="issue-no">第${item.issue}期</span>
+                            <span class="date">${item.date}</span>
+                        </div>
+                        <div class="balls">${ballsHtml}</div>
+                    </div>
+                `;
+            });
+
+            document.getElementById('historyList').innerHTML = html;
+        }
+
+        // 获取最近300期号码列表（用于去重）
+        function getLast300Numbers() {
+            if (!cache[currentTab] || !cache[currentTab].data) return [];
+            return cache[currentTab].data.slice(0, 300);
+        }
+
+        // 返回
+        function goBack() {
+            window.location.href = 'index.html';
+        }
+
+        // 页面加载
+        (async function init() {
+            const profile = await getCurrentUserProfile();
+            if (!profile) {
+                window.location.href = 'index.html';
+                return;
+            }
+            await loadCacheFromDB();
+            renderIntro();
+            loadHistory(false);
+        })();
+    </script>
+</body>
+</html>

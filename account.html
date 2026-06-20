@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>账号管理 - 福利彩票选号系统</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="supabase-config.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif; 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 10px;
+        }
+        .container { 
+            width: 100%;
+            max-width: 400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+        .header { 
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+            padding: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .header h1 { font-size: 18px; font-weight: bold; }
+        .back-btn { 
+            background: rgba(255,255,255,0.2); 
+            border: none; 
+            color: white; 
+            padding: 6px 12px; 
+            border-radius: 5px; 
+            cursor: pointer; 
+            font-size: 14px;
+        }
+        .content { padding: 15px; }
+        .form-group { margin-bottom: 12px; }
+        label { 
+            display: block; 
+            font-size: 13px; 
+            color: #333; 
+            margin-bottom: 4px;
+            font-weight: 500;
+        }
+        input, select { 
+            width: 100%; 
+            padding: 10px; 
+            border: 1px solid #ddd; 
+            border-radius: 6px; 
+            font-size: 14px;
+        }
+        input:focus { outline: none; border-color: #f5576c; }
+        .btn { 
+            width: 100%; 
+            padding: 12px; 
+            border: none; 
+            border-radius: 6px; 
+            font-size: 15px; 
+            font-weight: bold; 
+            cursor: pointer; 
+            margin-bottom: 10px;
+        }
+        .btn-primary { 
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white; 
+        }
+        .btn-success { background: #28a745; color: white; }
+        .btn-danger { background: #dc3545; color: white; }
+        .btn-secondary { background: #6c757d; color: white; }
+        .message { 
+            padding: 8px; 
+            border-radius: 5px; 
+            margin-bottom: 10px; 
+            display: none;
+            font-size: 13px;
+        }
+        .message.error { background: #f8d7da; color: #721c24; display: block; }
+        .message.success { background: #d4edda; color: #155724; display: block; }
+        .user-list { margin-top: 15px; }
+        .user-item { 
+            background: #f8f9fa; 
+            border: 1px solid #e9ecef; 
+            border-radius: 8px; 
+            padding: 10px; 
+            margin-bottom: 8px;
+        }
+        .user-header { 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            margin-bottom: 5px;
+        }
+        .user-name { 
+            font-weight: bold; 
+            font-size: 14px;
+        }
+        .user-role { 
+            font-size: 12px; 
+            padding: 2px 8px; 
+            border-radius: 3px; 
+            background: #f5576c; 
+            color: white;
+        }
+        .user-role.admin { background: #28a745; }
+        .user-actions { 
+            display: flex; 
+            gap: 5px; 
+            margin-top: 5px;
+        }
+        .user-actions button { 
+            flex: 1; 
+            padding: 5px; 
+            border: none; 
+            border-radius: 4px; 
+            font-size: 12px; 
+            cursor: pointer;
+        }
+        .edit-btn { background: #ffc107; color: #333; }
+        .delete-btn { background: #dc3545; color: white; }
+        .no-data { 
+            text-align: center; 
+            padding: 20px; 
+            color: #999; 
+            font-size: 14px;
+        }
+        .section-title { 
+            font-size: 15px; 
+            font-weight: bold; 
+            margin: 15px 0 10px 0; 
+            color: #333; 
+            padding-bottom: 5px;
+            border-bottom: 2px solid #f5576c;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>👤 账号管理</h1>
+            <button class="back-btn" onclick="goBack()">← 返回</button>
+        </div>
+        <div class="content">
+            <div id="messageBox" class="message"></div>
+            
+            <div id="permissionDenied" style="display: none;">
+                <div style="text-align: center; padding: 30px 15px; color: #dc3545;">
+                    <h3>⚠️ 权限不足</h3>
+                    <p>只有管理员才能访问账号管理</p>
+                    <button class="btn btn-secondary" onclick="goBack()" style="margin-top: 20px;">返回主页</button>
+                </div>
+            </div>
+
+            <div id="adminContent" style="display: none;">
+                <div class="section-title">➕ 添加新账号</div>
+                <div class="form-group">
+                    <label>用户名</label>
+                    <input type="text" id="newUsername" placeholder="请输入用户名">
+                </div>
+                <div class="form-group">
+                    <label>密码</label>
+                    <input type="password" id="newPassword" placeholder="请输入密码">
+                </div>
+                <div class="form-group">
+                    <label>角色</label>
+                    <select id="newRole">
+                        <option value="user">普通用户</option>
+                        <option value="admin">管理员</option>
+                    </select>
+                </div>
+                <button class="btn btn-primary" onclick="addUser()">添加账号</button>
+
+                <div class="section-title">📋 账号列表</div>
+                <div id="userList" class="user-list"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentProfile = null;
+
+        // 检查权限
+        async function checkPermission() {
+            currentProfile = await getCurrentUserProfile();
+            if (!currentProfile) {
+                window.location.href = 'index.html';
+                return;
+            }
+            if (currentProfile.role !== 'admin') {
+                document.getElementById('permissionDenied').style.display = 'block';
+                document.getElementById('adminContent').style.display = 'none';
+            } else {
+                document.getElementById('permissionDenied').style.display = 'none';
+                document.getElementById('adminContent').style.display = 'block';
+                loadUserList();
+            }
+        }
+
+        // 显示消息
+        function showMessage(text, type) {
+            const box = document.getElementById('messageBox');
+            box.className = 'message ' + type;
+            box.textContent = text;
+        }
+
+        // 调用管理员专用的 Edge Function（新增/编辑/删除账号都走这里）
+        async function callAdminFunction(payload) {
+            const { data: { session } } = await supabaseClient.auth.getSession();
+            const { data, error } = await supabaseClient.functions.invoke('admin-manage-users', {
+                body: payload,
+                headers: { Authorization: `Bearer ${session.access_token}` }
+            });
+            if (error) {
+                // Edge Function 返回非 2xx 时，详细错误信息在 error.context 里
+                let msg = error.message;
+                try {
+                    const body = await error.context.json();
+                    if (body && body.error) msg = body.error;
+                } catch (_) {}
+                throw new Error(msg);
+            }
+            if (data && data.error) throw new Error(data.error);
+            return data;
+        }
+
+        // 添加用户
+        async function addUser() {
+            const username = document.getElementById('newUsername').value.trim();
+            const password = document.getElementById('newPassword').value.trim();
+            const role = document.getElementById('newRole').value;
+
+            if (!username || !password) {
+                showMessage('请填写完整信息', 'error');
+                return;
+            }
+
+            try {
+                await callAdminFunction({ action: 'create', username, password, role });
+                document.getElementById('newUsername').value = '';
+                document.getElementById('newPassword').value = '';
+                showMessage('添加成功', 'success');
+                loadUserList();
+            } catch (err) {
+                showMessage(err.message || '添加失败', 'error');
+            }
+        }
+
+        // 删除用户
+        async function deleteUser(userId) {
+            if (!confirm('确定要删除这个账号吗？')) return;
+
+            if (userId === currentProfile.id) {
+                showMessage('不能删除自己', 'error');
+                return;
+            }
+
+            try {
+                await callAdminFunction({ action: 'delete', userId });
+                showMessage('删除成功', 'success');
+                loadUserList();
+            } catch (err) {
+                showMessage(err.message || '删除失败', 'error');
+            }
+        }
+
+        // 编辑用户
+        async function editUser(userId, oldUsername, oldRole) {
+            const newUsername = prompt('请输入新用户名', oldUsername);
+            if (!newUsername) return;
+
+            const newPassword = prompt('请输入新密码（留空则不修改）', '');
+            const newRole = prompt('请输入新角色（admin/user）', oldRole);
+
+            const payload = { action: 'update', userId };
+            if (newUsername.trim() && newUsername.trim() !== oldUsername) payload.username = newUsername.trim();
+            if (newPassword && newPassword.trim()) payload.password = newPassword.trim();
+            if (newRole === 'admin' || newRole === 'user') payload.role = newRole;
+
+            try {
+                await callAdminFunction(payload);
+                showMessage('修改成功', 'success');
+                loadUserList();
+            } catch (err) {
+                showMessage(err.message || '修改失败', 'error');
+            }
+        }
+
+        // 加载用户列表
+        async function loadUserList() {
+            const { data: users, error } = await supabaseClient
+                .from('profiles')
+                .select('id, username, role, create_time')
+                .order('create_time', { ascending: true });
+
+            const listEl = document.getElementById('userList');
+
+            if (error) {
+                listEl.innerHTML = '<div class="no-data">加载失败：' + error.message + '</div>';
+                return;
+            }
+
+            if (!users || users.length === 0) {
+                listEl.innerHTML = '<div class="no-data">暂无账号</div>';
+                return;
+            }
+
+            let html = '';
+            users.forEach(user => {
+                const createDate = new Date(user.create_time).toLocaleDateString();
+                html += `
+                    <div class="user-item">
+                        <div class="user-header">
+                            <span class="user-name">${user.username}</span>
+                            <span class="user-role ${user.role}">${user.role === 'admin' ? '管理员' : '普通用户'}</span>
+                        </div>
+                        <div style="font-size: 12px; color: #666;">创建时间: ${createDate}</div>
+                        <div class="user-actions">
+                            <button class="edit-btn" onclick="editUser('${user.id}', '${user.username}', '${user.role}')">编辑</button>
+                            <button class="delete-btn" onclick="deleteUser('${user.id}')">删除</button>
+                        </div>
+                    </div>
+                `;
+            });
+            listEl.innerHTML = html;
+        }
+
+        // 返回
+        function goBack() {
+            window.location.href = 'index.html';
+        }
+
+        // 页面加载
+        checkPermission();
+    </script>
+</body>
+</html>

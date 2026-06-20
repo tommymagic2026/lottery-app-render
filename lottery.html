@@ -1,0 +1,1342 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>彩票选号 - 福利彩票选号系统</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="supabase-config.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif; 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 10px;
+        }
+        .container { 
+            width: 100%;
+            max-width: 400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+        .header { 
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+            padding: 12px 15px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .header h1 { font-size: 16px; font-weight: bold; }
+        .back-btn { 
+            background: rgba(255,255,255,0.2); 
+            border: none; 
+            color: white; 
+            padding: 5px 10px; 
+            border-radius: 4px; 
+            cursor: pointer; 
+            font-size: 12px;
+        }
+        .content { padding: 12px; }
+        .lottery-tabs { 
+            display: flex; 
+            gap: 4px; 
+            margin-bottom: 10px;
+        }
+        .tab-btn { 
+            flex: 1; 
+            padding: 8px 5px; 
+            border: none; 
+            border-radius: 6px; 
+            background: #f8f9fa; 
+            cursor: pointer; 
+            font-size: 12px;
+            transition: all 0.3s;
+        }
+        .tab-btn.active { 
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white; 
+        }
+        .kl8-select-tabs { 
+            display: flex; 
+            gap: 3px; 
+            margin-bottom: 10px;
+            flex-wrap: wrap;
+        }
+        .kl8-select-btn { 
+            flex: 1; 
+            min-width: 30px;
+            padding: 6px 4px; 
+            border: none; 
+            border-radius: 4px; 
+            background: #e9ecef; 
+            cursor: pointer; 
+            font-size: 12px;
+        }
+        .kl8-select-btn.active { 
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white; 
+        }
+        .type-tabs { 
+            display: flex; 
+            gap: 4px; 
+            margin-bottom: 10px;
+        }
+        .type-btn { 
+            flex: 1; 
+            padding: 6px; 
+            border: none; 
+            border-radius: 4px; 
+            background: #e9ecef; 
+            cursor: pointer; 
+            font-size: 12px;
+        }
+        .type-btn.active { 
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white; 
+        }
+        .message { 
+            padding: 8px; 
+            border-radius: 5px; 
+            margin-bottom: 8px; 
+            display: none;
+            font-size: 12px;
+        }
+        .message.error { background: #f8d7da; color: #721c24; display: block; }
+        .message.success { background: #d4edda; color: #155724; display: block; }
+        .ball-grid {
+            display: grid;
+            gap: 4px;
+            margin-bottom: 10px;
+        }
+        .ball-grid.ssq-red { grid-template-columns: repeat(7, 1fr); }
+        .ball-grid.ssq-blue { grid-template-columns: repeat(8, 1fr); }
+        .ball-grid.dlt-front { grid-template-columns: repeat(7, 1fr); }
+        .ball-grid.dlt-back { grid-template-columns: repeat(6, 1fr); }
+        .ball-grid.kl8 { grid-template-columns: repeat(10, 1fr); }
+        .ball-option { 
+            width: 30px; 
+            height: 30px; 
+            border-radius: 50%; 
+            border: 2px solid #ddd; 
+            background: white; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            font-size: 11px; 
+            font-weight: bold; 
+            cursor: pointer; 
+            transition: all 0.2s;
+        }
+        .ball-option.selected { 
+            border-color: #f5576c; 
+            color: white; 
+        }
+        .ball-option.red.selected { background: #ff4444; }
+        .ball-option.blue.selected { background: #4477ff; }
+        .ball-option.yellow.selected { background: #ffcc00; color: #333; }
+        .selected-numbers {
+            background: #f8f9fa;
+            padding: 8px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+        }
+        .selected-title { 
+            font-size: 12px; 
+            color: #666; 
+            margin-bottom: 5px; 
+            font-weight: 500;
+        }
+        .selected-balls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+        }
+        .selected-ball {
+            width: 26px;
+            height: 26px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            font-weight: bold;
+            color: white;
+        }
+        .btn-row {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+        .btn { 
+            flex: 1; 
+            padding: 10px; 
+            border: none; 
+            border-radius: 6px; 
+            font-size: 14px; 
+            font-weight: bold; 
+            cursor: pointer; 
+            color: white;
+        }
+        .btn-random { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); }
+        .btn-clear { background: #6c757d; }
+        .btn-save { background: #28a745; }
+        .btn-check { background: #17a2b8; }
+        .win-badge {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 3px;
+            font-size: 11px;
+            font-weight: bold;
+            margin-left: 5px;
+        }
+        .win-badge.win { background: #ffc107; color: #333; }
+        .win-badge.nowin { background: #6c757d; color: white; }
+        .my-item {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            padding: 8px;
+            margin-bottom: 6px;
+        }
+        .my-item-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 5px;
+            font-size: 12px;
+        }
+        .my-item-issue { font-weight: bold; }
+        .my-balls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 3px;
+            margin-bottom: 5px;
+        }
+        .my-ball {
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+            font-weight: bold;
+            color: white;
+        }
+        .delete-btn {
+            background: #dc3545;
+            color: white;
+            border: none;
+            padding: 3px 8px;
+            border-radius: 3px;
+            font-size: 11px;
+            cursor: pointer;
+        }
+        .check-btn {
+            background: #17a2b8;
+            color: white;
+            border: none;
+            padding: 3px 8px;
+            border-radius: 3px;
+            font-size: 11px;
+            cursor: pointer;
+            margin-right: 5px;
+        }
+        .no-data {
+            text-align: center;
+            padding: 20px;
+            color: #999;
+            font-size: 13px;
+        }
+        .section-title {
+            font-size: 14px;
+            font-weight: bold;
+            margin: 10px 0 5px 0;
+            color: #333;
+        }
+        .loading {
+            text-align: center;
+            padding: 10px;
+            color: #666;
+            font-size: 12px;
+        }
+        .winning-info {
+            background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+            border-radius: 8px;
+            padding: 10px;
+            margin-bottom: 10px;
+        }
+        .winning-title {
+            font-size: 12px;
+            color: #1565c0;
+            font-weight: 500;
+            margin-bottom: 5px;
+        }
+        .winning-number {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+            align-items: center;
+        }
+        .winning-ball {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+            font-weight: bold;
+            color: white;
+        }
+        .winning-issue {
+            font-size: 11px;
+            color: #1565c0;
+            font-weight: 500;
+            margin-bottom: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎲 彩票选号</h1>
+            <button class="back-btn" onclick="goBack()">← 返回</button>
+        </div>
+        <div class="content">
+            <div id="messageBox" class="message"></div>
+
+            <div id="winningInfo" class="winning-info">
+                <div class="winning-title">📢 最新开奖信息</div>
+                <div id="winningIssue" class="winning-issue">加载中...</div>
+                <div id="winningNumbers" class="winning-number"></div>
+            </div>
+
+            <div class="lottery-tabs">
+                <button class="tab-btn active" onclick="changeLottery('ssq')">双色球</button>
+                <button class="tab-btn" onclick="changeLottery('dlt')">超级大乐透</button>
+                <button class="tab-btn" onclick="changeLottery('kl8')">快乐8</button>
+            </div>
+
+
+
+            <div class="type-tabs">
+                <button class="type-btn active" onclick="changeType('manual')">手动选号</button>
+                <button class="type-btn" onclick="changeType('random')">随机选号</button>
+                <button class="type-btn" onclick="changeType('my')">我的选号</button>
+            </div>
+
+            <div id="manualSection">
+                <div id="manualContent"></div>
+                <div class="selected-numbers">
+                    <div class="selected-title">已选号码</div>
+                    <div id="selectedDisplay" class="selected-balls"></div>
+                </div>
+                <div class="btn-row">
+                    <button class="btn btn-clear" onclick="clearSelection()">清空</button>
+                    <button class="btn btn-random" onclick="quickRandom()">机选</button>
+                    <button class="btn btn-save" onclick="saveSelection()">保存选号</button>
+                </div>
+            </div>
+
+            <div id="randomSection" style="display: none;">
+                <div id="kl8RandomCount" style="display: none; margin-bottom: 8px;">
+                    <div class="selected-title">选择选号个数</div>
+                    <div class="kl8-select-tabs" style="margin-top: 5px;">
+                        <button class="kl8-select-btn active" onclick="changeRandomKl8Count(1)">选一</button>
+                        <button class="kl8-select-btn" onclick="changeRandomKl8Count(2)">选二</button>
+                        <button class="kl8-select-btn" onclick="changeRandomKl8Count(3)">选三</button>
+                        <button class="kl8-select-btn" onclick="changeRandomKl8Count(4)">选四</button>
+                        <button class="kl8-select-btn" onclick="changeRandomKl8Count(5)">选五</button>
+                        <button class="kl8-select-btn" onclick="changeRandomKl8Count(6)">选六</button>
+                        <button class="kl8-select-btn" onclick="changeRandomKl8Count(7)">选七</button>
+                        <button class="kl8-select-btn" onclick="changeRandomKl8Count(8)">选八</button>
+                        <button class="kl8-select-btn" onclick="changeRandomKl8Count(9)">选九</button>
+                        <button class="kl8-select-btn" onclick="changeRandomKl8Count(10)">选十</button>
+                    </div>
+                </div>
+                <div class="selected-numbers">
+                    <div class="selected-title">随机生成号码</div>
+                    <div id="randomDisplay" class="selected-balls"></div>
+                </div>
+                <div class="btn-row">
+                    <button class="btn btn-random" onclick="generateRandom()">重新生成</button>
+                    <button class="btn btn-save" onclick="saveRandomSelection()">保存选号</button>
+                </div>
+                <div style="font-size: 11px; color: #666; margin-bottom: 8px;">
+                    💡 已自动过滤最近300期已开出号码
+                </div>
+            </div>
+
+            <div id="mySection" style="display: none;">
+                <div id="myList"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_KEY = '1a6af2d8d7ddff8d605fd4925b5624c5';
+        const QUERY_URL = '/tanshu-api/api/caipiao/v1/query';
+        const WINNING_URL = '/tanshu-api/api/caipiao/v1/winning';
+        const caipiaoIdMap = { ssq: 11, dlt: 14, kl8: 89 };
+
+        const lotteryConfig = {
+            ssq: {
+                name: '双色球',
+                red: { min: 1, max: 33, count: 6 },
+                blue: { min: 1, max: 16, count: 1 },
+                required: 7
+            },
+            dlt: {
+                name: '超级大乐透',
+                front: { min: 1, max: 35, count: 5 },
+                back: { min: 1, max: 12, count: 2 },
+                required: 7
+            },
+            kl8: {
+                name: '快乐8',
+                all: { min: 1, max: 80 },
+                selectedCount: 10
+            }
+        };
+
+        let currentLottery = 'ssq';
+        let currentType = 'manual';
+        let kl8SelectedCount = 10;
+        let kl8RandomSelectedCount = 10;
+        let selectedNumbers = { red: [], blue: [], front: [], back: [], all: [] };
+        let currentRandomNumbers = null;
+        let historyCache = {}; // 异步从 Supabase 加载，见 init()
+
+        async function checkLogin() {
+            const profile = await getCurrentUserProfile();
+            if (!profile) {
+                window.location.href = 'index.html';
+                return null;
+            }
+            return profile;
+        }
+
+        // 从 Supabase 拉取开奖历史缓存（用于本地比对中奖号码、去重等，不需要写）
+        async function loadHistoryCacheFromDB() {
+            const { data, error } = await supabaseClient.from('history_cache').select('lottery, data, updated_at');
+            if (error) {
+                console.error('读取开奖缓存失败', error);
+                return;
+            }
+            historyCache = {};
+            (data || []).forEach(row => {
+                historyCache[row.lottery] = {
+                    time: new Date(row.updated_at).getTime(),
+                    data: row.data
+                };
+            });
+        }
+
+        // 获取最新开奖信息
+        async function loadWinningInfo() {
+            const caipiaoId = caipiaoIdMap[currentLottery];
+            document.getElementById('winningIssue').textContent = '加载中...';
+            document.getElementById('winningNumbers').innerHTML = '';
+            
+            try {
+                const response = await fetch(`${QUERY_URL}?key=${API_KEY}&caipiaoid=${caipiaoId}`);
+                const data = await response.json();
+                console.log('[开奖信息] 接口原始返回:', data);
+
+                if (data.code === 1) {
+                    // 不同接口/套餐返回的数据结构可能不同，这里做兼容处理：
+                    // 有的返回 data.list（数组，第一条是最新一期），
+                    // 有的直接返回 data.data（单期对象或数组）。
+                    let latest = null;
+                    if (Array.isArray(data.list) && data.list.length > 0) {
+                        latest = data.list[0];
+                    } else if (Array.isArray(data.data) && data.data.length > 0) {
+                        latest = data.data[0];
+                    } else if (data.data && typeof data.data === 'object') {
+                        latest = data.data;
+                    }
+
+                    if (latest) {
+                        renderWinningInfo(latest);
+                    } else {
+                        document.getElementById('winningIssue').textContent = '暂无开奖信息';
+                    }
+                } else {
+                    // code !== 1 表示接口明确返回了失败，把真实原因显示出来，方便排查
+                    document.getElementById('winningIssue').textContent =
+                        `获取失败: ${data.msg || data.message || ('code=' + data.code)}`;
+                }
+            } catch (error) {
+                console.error('获取开奖信息失败:', error);
+                document.getElementById('winningIssue').textContent = '获取信息失败: ' + error.message;
+            }
+        }
+
+        // 渲染开奖信息
+        function renderWinningInfo(data) {
+            // 实际接口返回字段：issueno（期号）、opendate（开奖日期）、
+            // number（全部开奖号码，含后区/蓝球，空格分隔）、refernumber（仅后区/蓝球部分）
+            const issueNo = data.issueno || data.issue || data.code || '';
+            const openDate = data.opendate || data.date || data.open_date || '';
+            document.getElementById('winningIssue').textContent = `第${issueNo}期 开奖日期: ${openDate}`;
+
+            const container = document.getElementById('winningNumbers');
+            container.innerHTML = '';
+
+            const allNumbers = (data.number || '').split(' ').filter(Boolean).map(Number);
+            const referNumbers = (data.refernumber || '').split(' ').filter(Boolean).map(Number);
+
+            let numbers = [];
+            let blueNumbers = [];
+
+            // 接口的 number 字段有时包含后区号码，有时不包含，不能简单按位置截取。
+            // 更可靠的做法：蓝球/后区直接用 refernumber；红球/前区 = number 中
+            // 去掉与 refernumber 重复的号码后剩下的部分（按出现顺序逐个去重，
+            // 避免红球本身恰好等于某个后区数字时被误删）。
+            function subtractOnce(source, toRemove) {
+                const remaining = [...toRemove];
+                return source.filter(n => {
+                    const idx = remaining.indexOf(n);
+                    if (idx === -1) return true;
+                    remaining.splice(idx, 1);
+                    return false;
+                });
+            }
+
+            if (currentLottery === 'ssq') {
+                blueNumbers = referNumbers.length ? referNumbers : allNumbers.slice(-1);
+                numbers = referNumbers.length ? subtractOnce(allNumbers, referNumbers) : allNumbers.slice(0, -1);
+            } else if (currentLottery === 'dlt') {
+                blueNumbers = referNumbers.length ? referNumbers : allNumbers.slice(-2);
+                numbers = referNumbers.length ? subtractOnce(allNumbers, referNumbers) : allNumbers.slice(0, -2);
+            } else if (currentLottery === 'kl8') {
+                // 快乐8：全部号码都是同一组，没有后区
+                numbers = allNumbers;
+            }
+
+            if (numbers.length === 0) {
+                console.warn('[开奖信息] 未能从返回数据中解析出号码，原始数据:', data);
+            }
+            console.log('[开奖信息] 渲染明细:', { currentLottery, allNumbers, referNumbers, numbers, blueNumbers });
+
+            // 渲染主要号码
+            numbers.forEach(num => {
+                const ball = document.createElement('div');
+                ball.className = 'winning-ball';
+                ball.style.background = '#ff4444';
+                ball.textContent = String(num).padStart(2, '0');
+                container.appendChild(ball);
+            });
+            
+            // 渲染蓝球/后区号码
+            blueNumbers.forEach(num => {
+                const ball = document.createElement('div');
+                ball.className = 'winning-ball';
+                ball.style.background = '#4477ff';
+                ball.textContent = String(num).padStart(2, '0');
+                container.appendChild(ball);
+            });
+        }
+
+        function showMessage(text, type) {
+            const box = document.getElementById('messageBox');
+            box.className = 'message ' + type;
+            box.textContent = text;
+        }
+
+        function changeLottery(lottery) {
+            currentLottery = lottery;
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+            
+            // 随机选号仍然显示选择个数，手动选号不显示
+            if (currentLottery === 'kl8') {
+                document.getElementById('kl8RandomCount').style.display = 'block';
+            } else {
+                document.getElementById('kl8RandomCount').style.display = 'none';
+            }
+            
+            clearSelection();
+            renderManualGrid();
+            loadWinningInfo();
+            if (currentType === 'random') {
+                generateRandom();
+            }
+        }
+
+        function changeKl8Count(count) {
+            kl8SelectedCount = count;
+            document.querySelectorAll('.kl8-select-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+            clearSelection();
+            renderManualGrid();
+        }
+
+        function changeRandomKl8Count(count) {
+            kl8RandomSelectedCount = count;
+            document.querySelectorAll('#kl8RandomCount .kl8-select-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+            generateRandom();
+        }
+
+        function changeType(type) {
+            currentType = type;
+            document.querySelectorAll('.type-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+
+            document.getElementById('manualSection').style.display = 'none';
+            document.getElementById('randomSection').style.display = 'none';
+            document.getElementById('mySection').style.display = 'none';
+
+            if (type === 'manual') {
+                document.getElementById('manualSection').style.display = 'block';
+                renderManualGrid();
+            } else if (type === 'random') {
+                document.getElementById('randomSection').style.display = 'block';
+                generateRandom();
+            } else if (type === 'my') {
+                document.getElementById('mySection').style.display = 'block';
+                loadMySelections();
+            }
+        }
+
+        function renderManualGrid() {
+            const config = lotteryConfig[currentLottery];
+            let html = '';
+
+            if (currentLottery === 'ssq') {
+                html += '<div class="section-title">红球（选6个）</div>';
+                html += '<div class="ball-grid ssq-red">';
+                for (let i = config.red.min; i <= config.red.max; i++) {
+                    const selected = selectedNumbers.red.includes(i) ? 'selected' : '';
+                    html += `<div class="ball-option red ${selected}" onclick="toggleNumber('red', ${i})">${String(i).padStart(2,'0')}</div>`;
+                }
+                html += '</div>';
+                html += '<div class="section-title" style="margin-top: 8px;">蓝球（选1个）</div>';
+                html += '<div class="ball-grid ssq-blue">';
+                for (let i = config.blue.min; i <= config.blue.max; i++) {
+                    const selected = selectedNumbers.blue.includes(i) ? 'selected' : '';
+                    html += `<div class="ball-option blue ${selected}" onclick="toggleNumber('blue', ${i})">${String(i).padStart(2,'0')}</div>`;
+                }
+                html += '</div>';
+            } else if (currentLottery === 'dlt') {
+                html += '<div class="section-title">前区（选5个）</div>';
+                html += '<div class="ball-grid dlt-front">';
+                for (let i = config.front.min; i <= config.front.max; i++) {
+                    const selected = selectedNumbers.front.includes(i) ? 'selected' : '';
+                    html += `<div class="ball-option red ${selected}" onclick="toggleNumber('front', ${i})">${String(i).padStart(2,'0')}</div>`;
+                }
+                html += '</div>';
+                html += '<div class="section-title" style="margin-top: 8px;">后区（选2个）</div>';
+                html += '<div class="ball-grid dlt-back">';
+                for (let i = config.back.min; i <= config.back.max; i++) {
+                    const selected = selectedNumbers.back.includes(i) ? 'selected' : '';
+                    html += `<div class="ball-option blue ${selected}" onclick="toggleNumber('back', ${i})">${String(i).padStart(2,'0')}</div>`;
+                }
+                html += '</div>';
+            } else if (currentLottery === 'kl8') {
+                html += `<div class="section-title">选号（选${kl8SelectedCount}个）</div>`;
+                html += '<div class="ball-grid kl8">';
+                for (let i = config.all.min; i <= config.all.max; i++) {
+                    const selected = selectedNumbers.all.includes(i) ? 'selected' : '';
+                    html += `<div class="ball-option yellow ${selected}" onclick="toggleNumber('all', ${i})">${String(i).padStart(2,'0')}</div>`;
+                }
+                html += '</div>';
+            }
+
+            document.getElementById('manualContent').innerHTML = html;
+            updateSelectedDisplay();
+        }
+
+        function toggleNumber(group, num) {
+            const arr = selectedNumbers[group];
+            const index = arr.indexOf(num);
+            const config = lotteryConfig[currentLottery];
+
+            if (index > -1) {
+                arr.splice(index, 1);
+                event.target.classList.remove('selected');
+            } else {
+                let maxCount;
+                if (currentLottery === 'ssq') {
+                    maxCount = group === 'red' ? config.red.count : config.blue.count;
+                } else if (currentLottery === 'dlt') {
+                    maxCount = group === 'front' ? config.front.count : config.back.count;
+                } else {
+                    maxCount = kl8SelectedCount;
+                }
+                if (arr.length >= maxCount) {
+                    showMessage(`该组最多只能选${maxCount}个号码`, 'error');
+                    return;
+                }
+                arr.push(num);
+                event.target.classList.add('selected');
+            }
+
+            updateSelectedDisplay();
+        }
+
+        function updateSelectedDisplay() {
+            let html = '';
+            if (currentLottery === 'ssq') {
+                selectedNumbers.red.sort((a, b) => a - b).forEach(r => {
+                    html += `<span class="selected-ball" style="background: #ff4444;">${String(r).padStart(2,'0')}</span>`;
+                });
+                selectedNumbers.blue.sort((a, b) => a - b).forEach(b => {
+                    html += `<span class="selected-ball" style="background: #4477ff;">${String(b).padStart(2,'0')}</span>`;
+                });
+            } else if (currentLottery === 'dlt') {
+                selectedNumbers.front.sort((a, b) => a - b).forEach(f => {
+                    html += `<span class="selected-ball" style="background: #ff4444;">${String(f).padStart(2,'0')}</span>`;
+                });
+                selectedNumbers.back.sort((a, b) => a - b).forEach(b => {
+                    html += `<span class="selected-ball" style="background: #4477ff;">${String(b).padStart(2,'0')}</span>`;
+                });
+            } else if (currentLottery === 'kl8') {
+                selectedNumbers.all.sort((a, b) => a - b).forEach(n => {
+                    html += `<span class="selected-ball" style="background: #ffcc00; color: #333;">${String(n).padStart(2,'0')}</span>`;
+                });
+            }
+            document.getElementById('selectedDisplay').innerHTML = html;
+        }
+
+        function clearSelection() {
+            selectedNumbers = { red: [], blue: [], front: [], back: [], all: [] };
+            renderManualGrid();
+        }
+
+        function quickRandom() {
+            clearSelection();
+            const numbers = generateRandomNumbers();
+            selectedNumbers = { ...numbers };
+            renderManualGrid();
+        }
+
+        function getLast300Combinations() {
+            if (!historyCache[currentLottery] || !historyCache[currentLottery].data) {
+                return [];
+            }
+            return historyCache[currentLottery].data.slice(0, 300).map(item => {
+                if (currentLottery === 'ssq') {
+                    return [...item.red, item.blue[0]].sort((a, b) => a - b).join(',');
+                } else if (currentLottery === 'dlt') {
+                    return [...item.front, ...item.back].sort((a, b) => a - b).join(',');
+                } else {
+                    return item.balls.slice(0, 10).sort((a, b) => a - b).join(',');
+                }
+            });
+        }
+
+        function generateRandomNumbers() {
+            const config = lotteryConfig[currentLottery];
+            const existingCombinations = getLast300Combinations();
+            let attempts = 0;
+
+            while (attempts < 1000) {
+                let result = { red: [], blue: [], front: [], back: [], all: [] };
+
+                if (currentLottery === 'ssq') {
+                    while (result.red.length < config.red.count) {
+                        const num = Math.floor(Math.random() * (config.red.max - config.red.min + 1)) + config.red.min;
+                        if (!result.red.includes(num)) result.red.push(num);
+                    }
+                    while (result.blue.length < config.blue.count) {
+                        const num = Math.floor(Math.random() * (config.blue.max - config.blue.min + 1)) + config.blue.min;
+                        if (!result.blue.includes(num)) result.blue.push(num);
+                    }
+                    result.red.sort((a, b) => a - b);
+                    result.blue.sort((a, b) => a - b);
+                } else if (currentLottery === 'dlt') {
+                    while (result.front.length < config.front.count) {
+                        const num = Math.floor(Math.random() * (config.front.max - config.front.min + 1)) + config.front.min;
+                        if (!result.front.includes(num)) result.front.push(num);
+                    }
+                    while (result.back.length < config.back.count) {
+                        const num = Math.floor(Math.random() * (config.back.max - config.back.min + 1)) + config.back.min;
+                        if (!result.back.includes(num)) result.back.push(num);
+                    }
+                    result.front.sort((a, b) => a - b);
+                    result.back.sort((a, b) => a - b);
+                } else if (currentLottery === 'kl8') {
+                    while (result.all.length < kl8RandomSelectedCount) {
+                        const num = Math.floor(Math.random() * (config.all.max - config.all.min + 1)) + config.all.min;
+                        if (!result.all.includes(num)) result.all.push(num);
+                    }
+                    result.all.sort((a, b) => a - b);
+                }
+
+                const combinationKey = getCombinationKey(result);
+                if (!existingCombinations.includes(combinationKey)) {
+                    return result;
+                }
+
+                attempts++;
+            }
+
+            return result;
+        }
+
+        function getCombinationKey(numbers) {
+            let arr = [];
+            if (currentLottery === 'ssq') arr = [...numbers.red, ...numbers.blue];
+            else if (currentLottery === 'dlt') arr = [...numbers.front, ...numbers.back];
+            else arr = [...numbers.all];
+            return arr.sort((a, b) => a - b).join(',');
+        }
+
+        function generateRandom() {
+            currentRandomNumbers = generateRandomNumbers();
+            displayRandomNumbers();
+        }
+
+        function displayRandomNumbers() {
+            if (!currentRandomNumbers) return;
+            let html = '';
+
+            if (currentLottery === 'ssq') {
+                currentRandomNumbers.red.forEach(r => {
+                    html += `<span class="selected-ball" style="background: #ff4444;">${String(r).padStart(2,'0')}</span>`;
+                });
+                currentRandomNumbers.blue.forEach(b => {
+                    html += `<span class="selected-ball" style="background: #4477ff;">${String(b).padStart(2,'0')}</span>`;
+                });
+            } else if (currentLottery === 'dlt') {
+                currentRandomNumbers.front.forEach(f => {
+                    html += `<span class="selected-ball" style="background: #ff4444;">${String(f).padStart(2,'0')}</span>`;
+                });
+                currentRandomNumbers.back.forEach(b => {
+                    html += `<span class="selected-ball" style="background: #4477ff;">${String(b).padStart(2,'0')}</span>`;
+                });
+            } else if (currentLottery === 'kl8') {
+                currentRandomNumbers.all.forEach(n => {
+                    html += `<span class="selected-ball" style="background: #ffcc00; color: #333;">${String(n).padStart(2,'0')}</span>`;
+                });
+            }
+
+            document.getElementById('randomDisplay').innerHTML = html;
+        }
+
+        function validateSelection(numbers) {
+            const config = lotteryConfig[currentLottery];
+
+            if (currentLottery === 'ssq') {
+                if (numbers.red.length !== config.red.count) return false;
+                if (numbers.blue.length !== config.blue.count) return false;
+            } else if (currentLottery === 'dlt') {
+                if (numbers.front.length !== config.front.count) return false;
+                if (numbers.back.length !== config.back.count) return false;
+            } else if (currentLottery === 'kl8') {
+                if (currentType === 'manual') {
+                    // 手动选号至少选1个
+                    if (numbers.all.length < 1 || numbers.all.length > 10) return false;
+                } else {
+                    // 随机选号需要选满指定个数
+                    if (numbers.all.length !== kl8RandomSelectedCount) return false;
+                }
+            }
+
+            return true;
+        }
+
+        // 计算下一期期号
+        function getNextIssue(currentIssue, lottery) {
+            currentIssue = String(currentIssue);
+            
+            if (lottery === 'ssq' || lottery === 'dlt') {
+                // 格式：年份后两位 + 3位期号 例如：24150
+                const prefix = currentIssue.slice(0, 2);
+                const issueNum = parseInt(currentIssue.slice(2)) + 1;
+                return prefix + String(issueNum).padStart(3, '0');
+            } else {
+                // 快乐8格式：4位年份 + 3位期号 例如：2024150
+                const prefix = currentIssue.slice(0, 4);
+                const issueNum = parseInt(currentIssue.slice(4)) + 1;
+                return prefix + String(issueNum).padStart(3, '0');
+            }
+        }
+
+        // 获取最新一期真实期号，返回下一期
+        async function getCurrentIssue() {
+            try {
+                const caipiaoid = caipiaoIdMap[currentLottery];
+                const url = `${QUERY_URL}?key=${API_KEY}&caipiaoid=${caipiaoid}`;
+                const response = await fetch(url);
+                const data = await response.json();
+                
+                if (data.code === 1 && data.data) {
+                    // 返回实时期号的下一期（未开奖期号）
+                    const currentIssue = String(data.data.issueno);
+                    return getNextIssue(currentIssue, currentLottery);
+                } else {
+                    throw new Error(data.msg || '获取期号失败');
+                }
+            } catch (error) {
+                console.error('获取期号失败:', error);
+                // 如果API失败，使用估算期号作为备用
+                const now = new Date();
+                const year = now.getFullYear();
+                let issue;
+
+                if (currentLottery === 'ssq') {
+                    const start = new Date(2003, 0, 1);
+                    const diffDays = Math.floor((now - start) / (1000 * 60 * 60 * 24));
+                    const issueNum = Math.floor(diffDays / 3.5) + 1;
+                    issue = String(year).slice(2) + String(issueNum).padStart(3, '0');
+                } else if (currentLottery === 'dlt') {
+                    const start = new Date(2007, 4, 1);
+                    const diffDays = Math.floor((now - start) / (1000 * 60 * 60 * 24));
+                    const issueNum = Math.floor(diffDays / 3.5) + 1;
+                    issue = String(year).slice(2) + String(issueNum).padStart(3, '0');
+                } else {
+                    const start = new Date(2020, 9, 1);
+                    const diffDays = Math.floor((now - start) / (1000 * 60 * 60 * 24));
+                    const issueNum = diffDays + 1;
+                    issue = String(year) + String(issueNum).padStart(3, '0');
+                }
+
+                // 估算时也返回下一期
+                return getNextIssue(issue, currentLottery);
+            }
+        }
+
+        async function saveSelection() {
+            await saveSelectionToDB(selectedNumbers);
+        }
+
+        async function saveRandomSelection() {
+            if (!currentRandomNumbers) {
+                showMessage('先生成号码再保存', 'error');
+                return;
+            }
+            await saveSelectionToDB(currentRandomNumbers);
+        }
+
+        async function saveSelectionToDB(numbers) {
+            if (!validateSelection(numbers)) {
+                if (currentLottery === 'kl8') {
+                    showMessage(`请选满${kl8SelectedCount}个号码`, 'error');
+                } else {
+                    const config = lotteryConfig[currentLottery];
+                    showMessage(`请选满${config.required}个号码`, 'error');
+                }
+                return;
+            }
+
+            showMessage('正在获取最新期号...', 'success');
+
+            try {
+                const currentIssue = await getCurrentIssue();
+                const profile = await getCurrentUserProfile();
+                if (!profile) {
+                    window.location.href = 'index.html';
+                    return;
+                }
+
+                const { error } = await supabaseClient.from('selections').insert({
+                    user_id: profile.id,
+                    username: profile.username,
+                    lottery: currentLottery,
+                    lottery_name: lotteryConfig[currentLottery].name,
+                    issue: currentIssue,
+                    kl8_count: currentLottery === 'kl8' ? kl8SelectedCount : null,
+                    numbers: { ...numbers },
+                    checked: false,
+                    win_prize: 0,
+                    win_level: 0
+                });
+
+                if (error) throw error;
+
+                showMessage('选号保存成功', 'success');
+            } catch (error) {
+                console.error(error);
+                showMessage('保存失败: ' + error.message, 'error');
+            }
+        }
+
+        async function deleteSelection(id) {
+            if (!confirm('确定要删除这条选号吗？')) return;
+            const { error } = await supabaseClient.from('selections').delete().eq('id', id);
+            if (error) {
+                showMessage('删除失败: ' + error.message, 'error');
+                return;
+            }
+            loadMySelections();
+        }
+
+        // 使用API查询中奖结果
+        async function checkWinWithApi(selection) {
+            try {
+                let numbers = [];
+                
+                if (selection.lottery === 'ssq') {
+                    numbers = [...selection.numbers.red, ...selection.numbers.blue];
+                } else if (selection.lottery === 'dlt') {
+                    numbers = [...selection.numbers.front, ...selection.numbers.back];
+                } else if (selection.lottery === 'kl8') {
+                    numbers = [...selection.numbers.all];
+                }
+
+                const caipiaoid = caipiaoIdMap[selection.lottery];
+                const issue = selection.issue;
+                const numberStr = numbers.join(',');
+                
+                const url = `${WINNING_URL}?key=${API_KEY}&caipiaoid=${caipiaoid}&issueno=${issue}&number=${numberStr}`;
+                const response = await fetch(url);
+                const data = await response.json();
+                console.log('[中奖查询] 接口原始返回:', data);
+
+                if (data.code === 1 && data.data) {
+                    let totalPrize = 0;
+                    if (Array.isArray(data.data)) {
+                        data.data.forEach(item => {
+                            totalPrize += parseFloat(item.prize || 0);
+                        });
+                    } else if (data.data.prize) {
+                        totalPrize = parseFloat(data.data.prize || 0);
+                    }
+                    
+                    return {
+                        match: totalPrize > 0,
+                        prize: totalPrize,
+                        level: data.data.level || 0,
+                        success: true
+                    };
+                } else {
+                    throw new Error(data.msg || data.message || `接口返回 code=${data.code}`);
+                }
+            } catch (error) {
+                console.error('API查询中奖失败:', error);
+                return { success: false, error: error.message };
+            }
+        }
+
+        // 快乐8中奖规则比对（纯本地计算，不依赖任何第三方"是否中奖"接口）
+        // userNumbers: 用户自选号码数组；winNumbers: 该期真实开奖号码数组；selectCount: 选几个玩法（1~10）
+        function matchKl8Prize(userNumbers, winNumbers, selectCount) {
+            const matchCount = userNumbers.filter(n => winNumbers.includes(n)).length;
+
+            const prizeMap = {
+                10: { 10: { level: 1, prize: 5000000 }, 9: { level: 2, prize: 8000 }, 8: { level: 3, prize: 800 }, 7: { level: 4, prize: 80 }, 6: { level: 5, prize: 5 }, 5: { level: 6, prize: 3 } },
+                9: { 9: { level: 1, prize: 100000 }, 8: { level: 2, prize: 2000 }, 7: { level: 3, prize: 200 }, 6: { level: 4, prize: 20 }, 5: { level: 5, prize: 5 }, 4: { level: 6, prize: 2 } },
+                8: { 8: { level: 1, prize: 50000 }, 7: { level: 2, prize: 800 }, 6: { level: 3, prize: 80 }, 5: { level: 4, prize: 15 }, 4: { level: 5, prize: 3 }, 3: { level: 6, prize: 2 } },
+                7: { 7: { level: 1, prize: 10000 }, 6: { level: 2, prize: 280 }, 5: { level: 3, prize: 50 }, 4: { level: 4, prize: 10 }, 3: { level: 5, prize: 3 }, 2: { level: 6, prize: 2 } },
+                6: { 6: { level: 1, prize: 5000 }, 5: { level: 2, prize: 200 }, 4: { level: 3, prize: 30 }, 3: { level: 4, prize: 10 }, 2: { level: 5, prize: 2 } },
+                5: { 5: { level: 1, prize: 1000 }, 4: { level: 2, prize: 100 }, 3: { level: 3, prize: 15 }, 2: { level: 4, prize: 5 } },
+                4: { 4: { level: 1, prize: 100 }, 3: { level: 2, prize: 12 }, 2: { level: 3, prize: 3 } },
+                3: { 3: { level: 1, prize: 50 }, 2: { level: 2, prize: 5 }, 1: { level: 3, prize: 3 } },
+                2: { 2: { level: 1, prize: 10 }, 1: { level: 2, prize: 2 } },
+                1: { 1: { level: 1, prize: 5 } }
+            };
+
+            if (prizeMap[selectCount] && prizeMap[selectCount][matchCount]) {
+                return { match: true, level: prizeMap[selectCount][matchCount].level, prize: prizeMap[selectCount][matchCount].prize, matchCount };
+            }
+            return { match: false, level: 0, prize: 0, matchCount };
+        }
+
+        // 快乐8：按选号的期号去查询该期真实开奖号码，再用规则本地比对是否中奖
+        // 只有"自选号码的期号"和"真实开奖期号"一致时才出结果，否则提示尚未开奖/期号不存在
+        async function checkKl8WinByIssue(selection) {
+            try {
+                const caipiaoid = caipiaoIdMap['kl8'];
+                const url = `${QUERY_URL}?key=${API_KEY}&caipiaoid=${caipiaoid}&issueno=${selection.issue}`;
+                const response = await fetch(url);
+                const data = await response.json();
+                console.log('[快乐8开奖查询] 接口原始返回:', data);
+
+                if (data.code !== 1 || !data.data) {
+                    return { success: false, error: data.msg || data.message || `接口返回 code=${data.code}` };
+                }
+
+                let openInfo = null;
+                if (Array.isArray(data.list) && data.list.length > 0) {
+                    openInfo = data.list[0];
+                } else if (Array.isArray(data.data) && data.data.length > 0) {
+                    openInfo = data.data[0];
+                } else if (data.data && typeof data.data === 'object') {
+                    openInfo = data.data;
+                }
+
+                if (!openInfo) {
+                    return { success: false, error: '未查询到该期开奖数据' };
+                }
+
+                const actualIssue = String(openInfo.issueno || openInfo.issue || '');
+                // 期号必须完全一致才比对，避免接口在期号不存在时退回最新一期导致误判
+                if (actualIssue !== String(selection.issue)) {
+                    return { success: false, error: `第${selection.issue}期尚未开奖，暂无法查询` };
+                }
+
+                const winNumbers = (openInfo.number || '').split(' ').filter(Boolean).map(Number);
+                if (winNumbers.length === 0) {
+                    return { success: false, error: '开奖号码数据异常' };
+                }
+
+                const userNumbers = selection.numbers.all;
+                const selectCount = selection.kl8Count || userNumbers.length;
+                const result = matchKl8Prize(userNumbers, winNumbers, selectCount);
+
+                return {
+                    success: true,
+                    match: result.match,
+                    prize: result.prize,
+                    level: result.level
+                };
+            } catch (error) {
+                console.error('快乐8本地中奖比对失败:', error);
+                return { success: false, error: error.message };
+            }
+        }
+
+        function checkWinLocal(selection) {
+            if (!historyCache[selection.lottery] || !historyCache[selection.lottery].data || historyCache[selection.lottery].data.length === 0) {
+                return { match: false, prize: 0, level: 0 };
+            }
+
+            const historyItem = historyCache[selection.lottery].data.find(item => String(item.issue) === String(selection.issue));
+            if (!historyItem) {
+                return { match: false, prize: 0, level: 0 };
+            }
+
+            if (selection.lottery === 'ssq') {
+                const userRed = selection.numbers.red;
+                const userBlue = selection.numbers.blue[0];
+                const winRed = historyItem.red || [];
+                const winBlue = historyItem.blue[0];
+
+                const redMatch = userRed.filter(n => winRed.includes(n)).length;
+                const blueMatch = (userBlue === winBlue) ? 1 : 0;
+
+                if (redMatch === 6 && blueMatch === 1) return { match: true, level: 1, prize: 0 };
+                if (redMatch === 6 && blueMatch === 0) return { match: true, level: 2, prize: 0 };
+                if (redMatch === 5 && blueMatch === 1) return { match: true, level: 3, prize: 3000 };
+                if ((redMatch === 5 && blueMatch === 0) || (redMatch === 4 && blueMatch === 1)) return { match: true, level: 4, prize: 200 };
+                if ((redMatch === 4 && blueMatch === 0) || (redMatch === 3 && blueMatch === 1)) return { match: true, level: 5, prize: 10 };
+                if ((redMatch === 2 && blueMatch === 1) || (redMatch === 1 && blueMatch === 1) || (redMatch === 0 && blueMatch === 1)) return { match: true, level: 6, prize: 5 };
+
+                return { match: false, prize: 0, level: 0 };
+            } else if (selection.lottery === 'dlt') {
+                const userFront = selection.numbers.front;
+                const userBack = selection.numbers.back;
+                const winFront = historyItem.front || [];
+                const winBack = historyItem.back || [];
+
+                const frontMatch = userFront.filter(n => winFront.includes(n)).length;
+                const backMatch = userBack.filter(n => winBack.includes(n)).length;
+
+                if (frontMatch === 5 && backMatch === 2) return { match: true, level: 1, prize: 0 };
+                if (frontMatch === 5 && backMatch === 1) return { match: true, level: 2, prize: 0 };
+                if ((frontMatch === 5 && backMatch === 0) || (frontMatch === 4 && backMatch === 2)) return { match: true, level: 3, prize: 10000 };
+                if ((frontMatch === 4 && backMatch === 1) || (frontMatch === 3 && backMatch === 2)) return { match: true, level: 4, prize: 3000 };
+                if ((frontMatch === 4 && backMatch === 0) || (frontMatch === 3 && backMatch === 1) || (frontMatch === 2 && backMatch === 2)) return { match: true, level: 5, prize: 200 };
+                if ((frontMatch === 3 && backMatch === 0) || (frontMatch === 2 && backMatch === 1) || (frontMatch === 1 && backMatch === 2)) return { match: true, level: 6, prize: 100 };
+                if ((frontMatch === 2 && backMatch === 0) || (frontMatch === 1 && backMatch === 1) || (frontMatch === 0 && backMatch === 2)) return { match: true, level: 7, prize: 15 };
+
+                return { match: false, prize: 0, level: 0 };
+            } else if (selection.lottery === 'kl8') {
+                const userNums = selection.numbers.all;
+                const winNums = historyItem.balls || [];
+                const matchCount = userNums.filter(n => winNums.includes(n)).length;
+                const selectCount = selection.kl8Count || 10;
+                
+                const prizeMap = {
+                    10: { 10: { level: 1, prize: 5000000 }, 9: { level: 2, prize: 8000 }, 8: { level: 3, prize: 800 }, 7: { level: 4, prize: 80 }, 6: { level: 5, prize: 5 }, 5: { level: 6, prize: 3 } },
+                    9: { 9: { level: 1, prize: 100000 }, 8: { level: 2, prize: 2000 }, 7: { level: 3, prize: 200 }, 6: { level: 4, prize: 20 }, 5: { level: 5, prize: 5 }, 4: { level: 6, prize: 2 } },
+                    8: { 8: { level: 1, prize: 50000 }, 7: { level: 2, prize: 800 }, 6: { level: 3, prize: 80 }, 5: { level: 4, prize: 15 }, 4: { level: 5, prize: 3 }, 3: { level: 6, prize: 2 } },
+                    7: { 7: { level: 1, prize: 10000 }, 6: { level: 2, prize: 280 }, 5: { level: 3, prize: 50 }, 4: { level: 4, prize: 10 }, 3: { level: 5, prize: 3 }, 2: { level: 6, prize: 2 } },
+                    6: { 6: { level: 1, prize: 5000 }, 5: { level: 2, prize: 200 }, 4: { level: 3, prize: 30 }, 3: { level: 4, prize: 10 }, 2: { level: 5, prize: 2 } },
+                    5: { 5: { level: 1, prize: 1000 }, 4: { level: 2, prize: 100 }, 3: { level: 3, prize: 15 }, 2: { level: 4, prize: 5 } },
+                    4: { 4: { level: 1, prize: 100 }, 3: { level: 2, prize: 12 }, 2: { level: 3, prize: 3 } },
+                    3: { 3: { level: 1, prize: 50 }, 2: { level: 2, prize: 5 }, 1: { level: 3, prize: 3 } },
+                    2: { 2: { level: 1, prize: 10 }, 1: { level: 2, prize: 2 } },
+                    1: { 1: { level: 1, prize: 5 } }
+                };
+                
+                if (prizeMap[selectCount] && prizeMap[selectCount][matchCount]) {
+                    return { match: true, level: prizeMap[selectCount][matchCount].level, prize: prizeMap[selectCount][matchCount].prize };
+                }
+                
+                return { match: false, prize: 0, level: 0 };
+            }
+
+            return { match: false, prize: 0, level: 0 };
+        }
+
+        async function checkAndUpdateWin(id) {
+            const { data: selection, error: fetchErr } = await supabaseClient
+                .from('selections')
+                .select('*')
+                .eq('id', id)
+                .single();
+            if (fetchErr || !selection) return;
+
+            // 兼容下面 checkWinWithApi/checkKl8WinByIssue 用的字段名（驼峰命名）
+            selection.lotteryName = selection.lottery_name;
+            selection.kl8Count = selection.kl8_count;
+
+            const btn = event.target;
+            btn.disabled = true;
+            btn.textContent = '查询中...';
+
+            try {
+                // 快乐8：自选期号需与真实开奖期号一致，按规则本地比对（接口不支持快乐8的中奖查询）
+                // 其他彩种：沿用第三方"是否中奖"接口
+                const result = selection.lottery === 'kl8'
+                    ? await checkKl8WinByIssue(selection)
+                    : await checkWinWithApi(selection);
+
+                if (result.success) {
+                    const { error: updErr } = await supabaseClient
+                        .from('selections')
+                        .update({ checked: true, win_prize: result.prize, win_level: result.level })
+                        .eq('id', id);
+                    if (updErr) throw updErr;
+
+                    if (result.match) {
+                        showMessage(`查询成功！中奖${result.prize}元`, 'success');
+                    } else {
+                        showMessage('谢谢参与！', 'success');
+                    }
+
+                    loadMySelections();
+                } else {
+                    showMessage(`查询失败: ${result.error}`, 'error');
+                    btn.disabled = false;
+                    btn.textContent = '查询';
+                }
+            } catch (error) {
+                console.error(error);
+                showMessage('查询失败: ' + error.message, 'error');
+                btn.disabled = false;
+                btn.textContent = '查询';
+            }
+        }
+
+        async function loadMySelections() {
+            // RLS 已经限制只能查到自己的选号，这里不用再传 user_id 过滤条件
+            const { data: rows, error } = await supabaseClient
+                .from('selections')
+                .select('*')
+                .order('create_time', { ascending: false });
+
+            const listEl = document.getElementById('myList');
+
+            if (error) {
+                listEl.innerHTML = '<div class="no-data">加载失败：' + error.message + '</div>';
+                return;
+            }
+
+            // 把数据库的 snake_case 字段名转换成页面渲染逻辑用的驼峰命名
+            const mySelections = (rows || []).map(r => ({
+                id: r.id,
+                lottery: r.lottery,
+                lotteryName: r.lottery_name,
+                issue: r.issue,
+                kl8Count: r.kl8_count,
+                numbers: r.numbers,
+                createTime: new Date(r.create_time).getTime(),
+                checked: r.checked,
+                winPrize: r.win_prize,
+                winLevel: r.win_level
+            }));
+
+            if (mySelections.length === 0) {
+                listEl.innerHTML = '<div class="no-data">暂无选号记录</div>';
+                return;
+            }
+
+            let html = '';
+            mySelections.sort((a, b) => b.createTime - a.createTime).forEach(selection => {
+                let winBadge = '';
+                let checkBtn = '';
+                
+                if (selection.checked) {
+                    if (selection.winPrize > 0) {
+                        winBadge = `<span class="win-badge win">中奖 ${selection.winPrize}元</span>`;
+                    } else {
+                        winBadge = '<span class="win-badge nowin">谢谢参与</span>';
+                    }
+                } else {
+                    checkBtn = `<button class="check-btn" onclick="checkAndUpdateWin(${selection.id})">查询</button>`;
+                    winBadge = '<span class="win-badge nowin">未查询</span>';
+                }
+
+                let ballsHtml = '';
+                if (selection.lottery === 'ssq') {
+                    selection.numbers.red.sort((a, b) => a - b).forEach(r => {
+                        ballsHtml += `<span class="my-ball" style="background: #ff4444;">${String(r).padStart(2,'0')}</span>`;
+                    });
+                    selection.numbers.blue.forEach(b => {
+                        ballsHtml += `<span class="my-ball" style="background: #4477ff;">${String(b).padStart(2,'0')}</span>`;
+                    });
+                } else if (selection.lottery === 'dlt') {
+                    selection.numbers.front.sort((a, b) => a - b).forEach(f => {
+                        ballsHtml += `<span class="my-ball" style="background: #ff4444;">${String(f).padStart(2,'0')}</span>`;
+                    });
+                    selection.numbers.back.forEach(b => {
+                        ballsHtml += `<span class="my-ball" style="background: #4477ff;">${String(b).padStart(2,'0')}</span>`;
+                    });
+                } else if (selection.lottery === 'kl8') {
+                    selection.numbers.all.sort((a, b) => a - b).forEach(n => {
+                        ballsHtml += `<span class="my-ball" style="background: #ffcc00; color: #333;">${String(n).padStart(2,'0')}</span>`;
+                    });
+                    if (selection.kl8Count) {
+                        ballsHtml += `<span style="font-size: 11px; color: #666; margin-left: 5px;">选${selection.kl8Count}</span>`;
+                    }
+                }
+
+                const createDate = new Date(selection.createTime).toLocaleString();
+                html += `
+                    <div class="my-item">
+                        <div class="my-item-header">
+                            <span>
+                                <strong>${selection.lotteryName}</strong> 第${selection.issue}期
+                                ${winBadge}
+                            </span>
+                            <div>
+                                ${checkBtn}
+                                <button class="delete-btn" onclick="deleteSelection(${selection.id})">删除</button>
+                            </div>
+                        </div>
+                        <div class="my-balls">${ballsHtml}</div>
+                        <div style="font-size: 10px; color: #999; margin-top: 5px;">创建时间: ${createDate}</div>
+                    </div>
+                `;
+            });
+
+            listEl.innerHTML = html;
+        }
+
+        // 返回
+        function goBack() {
+            window.location.href = 'index.html';
+        }
+
+        // 检查URL参数
+        function checkUrlParams() {
+            const params = new URLSearchParams(window.location.search);
+            const tab = params.get('tab');
+            if (tab === 'my') {
+                changeType('my');
+            }
+        }
+
+        // 页面加载
+        (async function init() {
+            const profile = await checkLogin();
+            if (!profile) return;
+            await loadHistoryCacheFromDB();
+            renderManualGrid();
+            loadWinningInfo();
+            checkUrlParams();
+        })();
+    </script>
+</body>
+</html>
