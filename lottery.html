@@ -380,8 +380,9 @@
     </div>
 
     <script>
-        // 开奖数据接口改为调用 Supabase Edge Function "tanshu-proxy"（见 supabase-config.js 的 callTanshuProxy）
-        // 真实的探数数据 Key 只存在于 Edge Function 的环境变量里，浏览器看不到
+        const API_KEY = '1a6af2d8d7ddff8d605fd4925b5624c5';
+        const QUERY_URL = '/tanshu-api/api/caipiao/v1/query';
+        const WINNING_URL = '/tanshu-api/api/caipiao/v1/winning';
         const caipiaoIdMap = { ssq: 11, dlt: 14, kl8: 89 };
 
         const lotteryConfig = {
@@ -444,7 +445,8 @@
             document.getElementById('winningNumbers').innerHTML = '';
             
             try {
-                const data = await callTanshuProxy('query', { caipiaoid: caipiaoId });
+                const response = await fetch(`${QUERY_URL}?key=${API_KEY}&caipiaoid=${caipiaoId}`);
+                const data = await response.json();
                 console.log('[开奖信息] 接口原始返回:', data);
 
                 if (data.code === 1) {
@@ -863,7 +865,9 @@
         async function getCurrentIssue() {
             try {
                 const caipiaoid = caipiaoIdMap[currentLottery];
-                const data = await callTanshuProxy('query', { caipiaoid });
+                const url = `${QUERY_URL}?key=${API_KEY}&caipiaoid=${caipiaoid}`;
+                const response = await fetch(url);
+                const data = await response.json();
                 
                 if (data.code === 1 && data.data) {
                     // 返回实时期号的下一期（未开奖期号）
@@ -983,7 +987,9 @@
                 const issue = selection.issue;
                 const numberStr = numbers.join(',');
                 
-                const data = await callTanshuProxy('winning', { caipiaoid, issueno: issue, number: numberStr });
+                const url = `${WINNING_URL}?key=${API_KEY}&caipiaoid=${caipiaoid}&issueno=${issue}&number=${numberStr}`;
+                const response = await fetch(url);
+                const data = await response.json();
                 console.log('[中奖查询] 接口原始返回:', data);
 
                 if (data.code === 1 && data.data) {
@@ -1040,7 +1046,9 @@
         async function checkKl8WinByIssue(selection) {
             try {
                 const caipiaoid = caipiaoIdMap['kl8'];
-                const data = await callTanshuProxy('query', { caipiaoid, issueno: selection.issue });
+                const url = `${QUERY_URL}?key=${API_KEY}&caipiaoid=${caipiaoid}&issueno=${selection.issue}`;
+                const response = await fetch(url);
+                const data = await response.json();
                 console.log('[快乐8开奖查询] 接口原始返回:', data);
 
                 if (data.code !== 1 || !data.data) {

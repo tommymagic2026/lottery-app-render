@@ -173,7 +173,9 @@
     </div>
 
     <script>
-        // 开奖历史数据改为调用 Supabase Edge Function "tanshu-proxy"（见 supabase-config.js 的 callTanshuProxy）
+        const API_KEY = '1a6af2d8d7ddff8d605fd4925b5624c5'; // 请在探数数据(tanshuapi.com)“个人中心”里核对这是不是你账号下真实有效的Key
+        //const HISTORY_URL = 'https://api2.tanshuapi.com/api/caipiao/v1/history'; // 历史开奖接口（能一次返回多期），而不是只返回最新一期的 v1/query
+        const HISTORY_URL = '/tanshu-api/api/caipiao/v1/history';
         // 探数数据接口要求传数字编号 caipiaoid，不是 ssq/dlt/kl8 字符串
         const caipiaoIdMap = { ssq: 11, dlt: 14, kl8: 89 };
 
@@ -310,7 +312,9 @@
 
             try {
                 const caipiaoid = caipiaoIdMap[currentTab];
-                const data = await callTanshuProxy('history', { caipiaoid, num: 20, start: 0 });
+                const url = `${HISTORY_URL}?key=${API_KEY}&caipiaoid=${caipiaoid}&num=20&start=0`;
+                const response = await fetch(url);
+                const data = await response.json();
 
                 if (data.code === 1 && data.data && data.data.list) {
                     const list = data.data.list.map(raw => normalizeItem(raw, currentTab));
