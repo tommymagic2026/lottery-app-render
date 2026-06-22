@@ -510,8 +510,17 @@
             }
 
             if (currentLottery === 'ssq') {
+                // 探数API的 number 字段 = "红1 红2 红3 红4 红5 红6 蓝" 或 "红1 红2 红3 红4 红5 红6"（部分套餐蓝球只在refernumber）
+                // referNumbers = 蓝球
+                // 策略：优先按位置切分（allNumbers共6个时前5是红球，共7个时前6是红球），比subtractOnce更可靠
                 blueNumbers = referNumbers.length ? referNumbers : allNumbers.slice(-1);
-                numbers = referNumbers.length ? subtractOnce(allNumbers, referNumbers) : allNumbers.slice(0, -1);
+                if (allNumbers.length === 7) {
+                    numbers = allNumbers.slice(0, 6); // 7个时：前6红球+1蓝球
+                } else if (allNumbers.length === 6) {
+                    numbers = allNumbers.slice(0, 5); // 6个时：前5红球+1蓝球（蓝球已在refernumber）
+                } else {
+                    numbers = subtractOnce(allNumbers, referNumbers); // 兜底
+                }
             } else if (currentLottery === 'dlt') {
                 blueNumbers = referNumbers.length ? referNumbers : allNumbers.slice(-2);
                 numbers = referNumbers.length ? subtractOnce(allNumbers, referNumbers) : allNumbers.slice(0, -2);
