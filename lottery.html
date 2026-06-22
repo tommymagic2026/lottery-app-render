@@ -981,6 +981,118 @@
             loadMySelections();
         }
 
+        // 双色球中奖规则本地比对
+        function matchSsqPrize(userRed, userBlue, winRed, winBlue) {
+            const redMatch = userRed.filter(n => winRed.includes(n)).length;
+            const blueMatch = (userBlue[0] === winBlue[0]) ? 1 : 0;
+
+            if (redMatch === 6 && blueMatch === 1) return { match: true, level: 1, prize: 0 };      // 一等奖（浮动）
+            if (redMatch === 6 && blueMatch === 0) return { match: true, level: 2, prize: 0 };      // 二等奖（浮动）
+            if (redMatch === 5 && blueMatch === 1) return { match: true, level: 3, prize: 3000 };
+            if ((redMatch === 5 && blueMatch === 0) || (redMatch === 4 && blueMatch === 1)) return { match: true, level: 4, prize: 200 };
+            if ((redMatch === 4 && blueMatch === 0) || (redMatch === 3 && blueMatch === 1)) return { match: true, level: 5, prize: 10 };
+            if ((redMatch === 2 && blueMatch === 1) || (redMatch === 1 && blueMatch === 1) || (redMatch === 0 && blueMatch === 1)) return { match: true, level: 6, prize: 5 };
+            return { match: false, level: 0, prize: 0 };
+        }
+
+        // 超级大乐透中奖规则本地比对（按官方规则，奖池8亿以下档位）
+        function matchDltPrize(userFront, userBack, winFront, winBack) {
+            const frontMatch = userFront.filter(n => winFront.includes(n)).length;
+            const backMatch = userBack.filter(n => winBack.includes(n)).length;
+
+            if (frontMatch === 5 && backMatch === 2) return { match: true, level: 1, prize: 0 };      // 一等奖（浮动）
+            if (frontMatch === 5 && backMatch === 1) return { match: true, level: 2, prize: 0 };      // 二等奖（浮动）
+            if ((frontMatch === 5 && backMatch === 0) || (frontMatch === 4 && backMatch === 2)) return { match: true, level: 3, prize: 5000 };
+            if ((frontMatch === 4 && backMatch === 1) || (frontMatch === 3 && backMatch === 2)) return { match: true, level: 4, prize: 300 };
+            if ((frontMatch === 4 && backMatch === 0) || (frontMatch === 3 && backMatch === 1) || (frontMatch === 2 && backMatch === 2)) return { match: true, level: 5, prize: 150 };
+            if ((frontMatch === 3 && backMatch === 0) || (frontMatch === 2 && backMatch === 1) || (frontMatch === 1 && backMatch === 2)) return { match: true, level: 6, prize: 15 };
+            if ((frontMatch === 2 && backMatch === 0) || (frontMatch === 1 && backMatch === 1) || (frontMatch === 0 && backMatch === 2)) return { match: true, level: 7, prize: 5 };
+            return { match: false, level: 0, prize: 0 };
+        }
+
+        // 双色球/超级大乐透：按期号查询真实开奖号码，再本地比对中奖（与快乐8逻辑一致）
+        async function checkSsqDltWinByIssue(selection) {
+            try {
+                const caipiaoid = caipiaoIdMap[selection.lottery];
+                const url = `${QUERY_URL}?key=${API_KEY}&caipiaoid=${caipiaoid}&issueno=${selection.issue}`;
+                const response = await fetch(url);
+                const data = await response.json();
+                console.log(`[${selection.lotteryName}开奖查询] 接口原始返回:`, data);
+
+                if (data.code !== 1) {
+                    return { success: false, error: data.msg || data.message || `接口返回 code=${data.code}` };
+                }
+
+                let openInfo = null;
+                if (Array.isArray(data.list) && data.list.length > 0) {
+                    openInfo = data.list[0];
+                } else if (Array.isArray(data.data) && data.data.length > 0) {
+                    openInfo = data.data[0];
+                } else if (data.data && typeof data.data === 'object') {
+                    openInfo = data.data;
+                }
+
+                if (!openInfo) {
+                    return { success: false, error: '未查询到该期开奖数据' };
+                }
+
+                const actualIssue = String(openInfo.issueno || openInfo.issue || '');
+                if (actualIssue !== String(selection.issue)) {
+                    return { success: false, error: `第${selection.issue}期尚未开奖，暂无法查询` };
+                }
+
+                const allNumbers = (openInfo.number || '').split(' ').filter(Boolean).map(Number);
+                const referNumbers = (openInfo.refernumber || '').split(' ').filter(Boolean).map(Number);
+
+                let result;
+                if (selection.lottery === 'ssq') {
+                    // 红球=前6个（或去掉蓝球后剩余），蓝球=refernumber 或最后1个
+                    const winBlue = referNumbers.length > 0 ? referNumbers : allNumbers.slice(-1);
+                    const winRed = referNumbers.length > 0
+                        ? allNumbers.filter((n, i, arr) => { const idx = referNumbers.indexOf(n); return idx === -1; })
+                        : allNumbers.slice(0, -1);
+                    // 更安全：用subtractOnce逻辑
+                    function subtractOnce(source, toRemove) {
+                        const remaining = [...toRemove];
+                        return source.filter(n => {
+                            const idx = remaining.indexOf(n);
+                            if (idx === -1) return true;
+                            remaining.splice(idx, 1);
+                            return false;
+                        });
+                    }
+                    const finalRed = referNumbers.length > 0 ? subtractOnce(allNumbers, referNumbers) : allNumbers.slice(0, -1);
+                    result = matchSsqPrize(selection.numbers.red, selection.numbers.blue, finalRed, winBlue);
+                } else if (selection.lottery === 'dlt') {
+                    // 前区=去掉后区的部分，后区=refernumber 或最后2个
+                    const winBack = referNumbers.length > 0 ? referNumbers : allNumbers.slice(-2);
+                    function subtractOnce(source, toRemove) {
+                        const remaining = [...toRemove];
+                        return source.filter(n => {
+                            const idx = remaining.indexOf(n);
+                            if (idx === -1) return true;
+                            remaining.splice(idx, 1);
+                            return false;
+                        });
+                    }
+                    const winFront = referNumbers.length > 0 ? subtractOnce(allNumbers, referNumbers) : allNumbers.slice(0, -2);
+                    result = matchDltPrize(selection.numbers.front, selection.numbers.back, winFront, winBack);
+                } else {
+                    return { success: false, error: '不支持的彩种' };
+                }
+
+                return {
+                    success: true,
+                    match: result.match,
+                    prize: result.prize,
+                    level: result.level
+                };
+            } catch (error) {
+                console.error(`${selection.lotteryName}本地中奖比对失败:`, error);
+                return { success: false, error: error.message };
+            }
+        }
+
         // 使用API查询中奖结果
         async function checkWinWithApi(selection) {
             try {
@@ -1033,20 +1145,21 @@
         function matchKl8Prize(userNumbers, winNumbers, selectCount) {
             const matchCount = userNumbers.filter(n => winNumbers.includes(n)).length;
 
+            // 快乐8官方中奖规则（按官网"选一"至"选十"奖金设置结构表）
             const prizeMap = {
-                10: { 10: { level: 1, prize: 5000000 }, 9: { level: 2, prize: 8000 }, 8: { level: 3, prize: 800 }, 7: { level: 4, prize: 80 }, 6: { level: 5, prize: 5 }, 5: { level: 6, prize: 3 } },
-                9: { 9: { level: 1, prize: 100000 }, 8: { level: 2, prize: 2000 }, 7: { level: 3, prize: 200 }, 6: { level: 4, prize: 20 }, 5: { level: 5, prize: 5 }, 4: { level: 6, prize: 2 } },
-                8: { 8: { level: 1, prize: 50000 }, 7: { level: 2, prize: 800 }, 6: { level: 3, prize: 80 }, 5: { level: 4, prize: 15 }, 4: { level: 5, prize: 3 }, 3: { level: 6, prize: 2 } },
-                7: { 7: { level: 1, prize: 10000 }, 6: { level: 2, prize: 280 }, 5: { level: 3, prize: 50 }, 4: { level: 4, prize: 10 }, 3: { level: 5, prize: 3 }, 2: { level: 6, prize: 2 } },
-                6: { 6: { level: 1, prize: 5000 }, 5: { level: 2, prize: 200 }, 4: { level: 3, prize: 30 }, 3: { level: 4, prize: 10 }, 2: { level: 5, prize: 2 } },
-                5: { 5: { level: 1, prize: 1000 }, 4: { level: 2, prize: 100 }, 3: { level: 3, prize: 15 }, 2: { level: 4, prize: 5 } },
-                4: { 4: { level: 1, prize: 100 }, 3: { level: 2, prize: 12 }, 2: { level: 3, prize: 3 } },
-                3: { 3: { level: 1, prize: 50 }, 2: { level: 2, prize: 5 }, 1: { level: 3, prize: 3 } },
-                2: { 2: { level: 1, prize: 10 }, 1: { level: 2, prize: 2 } },
-                1: { 1: { level: 1, prize: 5 } }
+                10: { 10: { level: 1, prize: 5000000 }, 9: { level: 2, prize: 8000 }, 8: { level: 3, prize: 720 }, 7: { level: 4, prize: 80 }, 6: { level: 5, prize: 5 }, 5: { level: 6, prize: 3 }, 0: { level: 7, prize: 2 } },
+                9:  { 9: { level: 1, prize: 5000000 }, 8: { level: 2, prize: 2000 }, 7: { level: 3, prize: 225 }, 6: { level: 4, prize: 22 }, 5: { level: 5, prize: 5 }, 4: { level: 6, prize: 3 }, 0: { level: 7, prize: 2 } },
+                8:  { 8: { level: 1, prize: 50000 }, 7: { level: 2, prize: 800 }, 6: { level: 3, prize: 80 }, 5: { level: 4, prize: 10 }, 4: { level: 5, prize: 3 }, 3: { level: 6, prize: 2 }, 0: { level: 7, prize: 2 } },
+                7:  { 7: { level: 1, prize: 8500 }, 6: { level: 2, prize: 300 }, 5: { level: 3, prize: 30 }, 4: { level: 4, prize: 4 }, 3: { level: 5, prize: 3 }, 0: { level: 6, prize: 2 } },
+                6:  { 6: { level: 1, prize: 2880 }, 5: { level: 2, prize: 30 }, 4: { level: 3, prize: 10 }, 3: { level: 4, prize: 3 } },
+                5:  { 5: { level: 1, prize: 1000 }, 4: { level: 2, prize: 20 }, 3: { level: 3, prize: 3 } },
+                4:  { 4: { level: 1, prize: 93 }, 3: { level: 2, prize: 5 }, 2: { level: 3, prize: 3 } },
+                3:  { 3: { level: 1, prize: 52 }, 2: { level: 2, prize: 3 } },
+                2:  { 2: { level: 1, prize: 19 } },
+                1:  { 1: { level: 1, prize: 4.5 } }
             };
 
-            if (prizeMap[selectCount] && prizeMap[selectCount][matchCount]) {
+            if (prizeMap[selectCount] && prizeMap[selectCount][matchCount] !== undefined) {
                 return { match: true, level: prizeMap[selectCount][matchCount].level, prize: prizeMap[selectCount][matchCount].prize, matchCount };
             }
             return { match: false, level: 0, prize: 0, matchCount };
@@ -1142,13 +1255,14 @@
                 const frontMatch = userFront.filter(n => winFront.includes(n)).length;
                 const backMatch = userBack.filter(n => winBack.includes(n)).length;
 
-                if (frontMatch === 5 && backMatch === 2) return { match: true, level: 1, prize: 0 };
-                if (frontMatch === 5 && backMatch === 1) return { match: true, level: 2, prize: 0 };
-                if ((frontMatch === 5 && backMatch === 0) || (frontMatch === 4 && backMatch === 2)) return { match: true, level: 3, prize: 10000 };
-                if ((frontMatch === 4 && backMatch === 1) || (frontMatch === 3 && backMatch === 2)) return { match: true, level: 4, prize: 3000 };
-                if ((frontMatch === 4 && backMatch === 0) || (frontMatch === 3 && backMatch === 1) || (frontMatch === 2 && backMatch === 2)) return { match: true, level: 5, prize: 200 };
-                if ((frontMatch === 3 && backMatch === 0) || (frontMatch === 2 && backMatch === 1) || (frontMatch === 1 && backMatch === 2)) return { match: true, level: 6, prize: 100 };
-                if ((frontMatch === 2 && backMatch === 0) || (frontMatch === 1 && backMatch === 1) || (frontMatch === 0 && backMatch === 2)) return { match: true, level: 7, prize: 15 };
+                // 超级大乐透中奖规则（按官方规则）
+                if (frontMatch === 5 && backMatch === 2) return { match: true, level: 1, prize: 0 };      // 一等奖（浮动）
+                if (frontMatch === 5 && backMatch === 1) return { match: true, level: 2, prize: 0 };      // 二等奖（浮动）
+                if ((frontMatch === 5 && backMatch === 0) || (frontMatch === 4 && backMatch === 2)) return { match: true, level: 3, prize: 5000 };  // 三等奖
+                if ((frontMatch === 4 && backMatch === 1) || (frontMatch === 3 && backMatch === 2)) return { match: true, level: 4, prize: 300 };   // 四等奖
+                if ((frontMatch === 4 && backMatch === 0) || (frontMatch === 3 && backMatch === 1) || (frontMatch === 2 && backMatch === 2)) return { match: true, level: 5, prize: 150 };  // 五等奖
+                if ((frontMatch === 3 && backMatch === 0) || (frontMatch === 2 && backMatch === 1) || (frontMatch === 1 && backMatch === 2)) return { match: true, level: 6, prize: 15 };   // 六等奖
+                if ((frontMatch === 2 && backMatch === 0) || (frontMatch === 1 && backMatch === 1) || (frontMatch === 0 && backMatch === 2)) return { match: true, level: 7, prize: 5 };    // 七等奖
 
                 return { match: false, prize: 0, level: 0 };
             } else if (selection.lottery === 'kl8') {
@@ -1158,19 +1272,19 @@
                 const selectCount = selection.kl8Count || 10;
                 
                 const prizeMap = {
-                    10: { 10: { level: 1, prize: 5000000 }, 9: { level: 2, prize: 8000 }, 8: { level: 3, prize: 800 }, 7: { level: 4, prize: 80 }, 6: { level: 5, prize: 5 }, 5: { level: 6, prize: 3 } },
-                    9: { 9: { level: 1, prize: 100000 }, 8: { level: 2, prize: 2000 }, 7: { level: 3, prize: 200 }, 6: { level: 4, prize: 20 }, 5: { level: 5, prize: 5 }, 4: { level: 6, prize: 2 } },
-                    8: { 8: { level: 1, prize: 50000 }, 7: { level: 2, prize: 800 }, 6: { level: 3, prize: 80 }, 5: { level: 4, prize: 15 }, 4: { level: 5, prize: 3 }, 3: { level: 6, prize: 2 } },
-                    7: { 7: { level: 1, prize: 10000 }, 6: { level: 2, prize: 280 }, 5: { level: 3, prize: 50 }, 4: { level: 4, prize: 10 }, 3: { level: 5, prize: 3 }, 2: { level: 6, prize: 2 } },
-                    6: { 6: { level: 1, prize: 5000 }, 5: { level: 2, prize: 200 }, 4: { level: 3, prize: 30 }, 3: { level: 4, prize: 10 }, 2: { level: 5, prize: 2 } },
-                    5: { 5: { level: 1, prize: 1000 }, 4: { level: 2, prize: 100 }, 3: { level: 3, prize: 15 }, 2: { level: 4, prize: 5 } },
-                    4: { 4: { level: 1, prize: 100 }, 3: { level: 2, prize: 12 }, 2: { level: 3, prize: 3 } },
-                    3: { 3: { level: 1, prize: 50 }, 2: { level: 2, prize: 5 }, 1: { level: 3, prize: 3 } },
-                    2: { 2: { level: 1, prize: 10 }, 1: { level: 2, prize: 2 } },
-                    1: { 1: { level: 1, prize: 5 } }
+                    10: { 10: { level: 1, prize: 5000000 }, 9: { level: 2, prize: 8000 }, 8: { level: 3, prize: 720 }, 7: { level: 4, prize: 80 }, 6: { level: 5, prize: 5 }, 5: { level: 6, prize: 3 }, 0: { level: 7, prize: 2 } },
+                    9:  { 9: { level: 1, prize: 5000000 }, 8: { level: 2, prize: 2000 }, 7: { level: 3, prize: 225 }, 6: { level: 4, prize: 22 }, 5: { level: 5, prize: 5 }, 4: { level: 6, prize: 3 }, 0: { level: 7, prize: 2 } },
+                    8:  { 8: { level: 1, prize: 50000 }, 7: { level: 2, prize: 800 }, 6: { level: 3, prize: 80 }, 5: { level: 4, prize: 10 }, 4: { level: 5, prize: 3 }, 3: { level: 6, prize: 2 }, 0: { level: 7, prize: 2 } },
+                    7:  { 7: { level: 1, prize: 8500 }, 6: { level: 2, prize: 300 }, 5: { level: 3, prize: 30 }, 4: { level: 4, prize: 4 }, 3: { level: 5, prize: 3 }, 0: { level: 6, prize: 2 } },
+                    6:  { 6: { level: 1, prize: 2880 }, 5: { level: 2, prize: 30 }, 4: { level: 3, prize: 10 }, 3: { level: 4, prize: 3 } },
+                    5:  { 5: { level: 1, prize: 1000 }, 4: { level: 2, prize: 20 }, 3: { level: 3, prize: 3 } },
+                    4:  { 4: { level: 1, prize: 93 }, 3: { level: 2, prize: 5 }, 2: { level: 3, prize: 3 } },
+                    3:  { 3: { level: 1, prize: 52 }, 2: { level: 2, prize: 3 } },
+                    2:  { 2: { level: 1, prize: 19 } },
+                    1:  { 1: { level: 1, prize: 4.5 } }
                 };
                 
-                if (prizeMap[selectCount] && prizeMap[selectCount][matchCount]) {
+                if (prizeMap[selectCount] && prizeMap[selectCount][matchCount] !== undefined) {
                     return { match: true, level: prizeMap[selectCount][matchCount].level, prize: prizeMap[selectCount][matchCount].prize };
                 }
                 
@@ -1198,11 +1312,10 @@
             btn.textContent = '查询中...';
 
             try {
-                // 快乐8：自选期号需与真实开奖期号一致，按规则本地比对（接口不支持快乐8的中奖查询）
-                // 其他彩种：沿用第三方"是否中奖"接口
+                // 三种彩票统一走"按期号查询开奖号码 → 本地规则比对"逻辑，确保准确
                 const result = selection.lottery === 'kl8'
                     ? await checkKl8WinByIssue(selection)
-                    : await checkWinWithApi(selection);
+                    : await checkSsqDltWinByIssue(selection);
 
                 if (result.success) {
                     const { error: updErr } = await supabaseClient
