@@ -516,8 +516,10 @@
                 blueNumbers = referNumbers.length ? referNumbers : allNumbers.slice(-1);
                 if (allNumbers.length === 7) {
                     numbers = allNumbers.slice(0, 6); // 7个时：前6红球+1蓝球
-                } else if (allNumbers.length === 6) {
-                    numbers = allNumbers.slice(0, 5); // 6个时：前5红球+1蓝球（蓝球已在refernumber）
+                } else if (allNumbers.length === 6 && referNumbers.length > 0) {
+                    numbers = allNumbers.slice(0, 6); // 6个时：全部6个都是红球（蓝球已在refernumber中）
+                } else if (allNumbers.length === 6 && referNumbers.length === 0) {
+                    numbers = allNumbers.slice(0, 5); // 6个时且无refernumber：前5红球+1蓝球
                 } else {
                     numbers = subtractOnce(allNumbers, referNumbers); // 兜底
                 }
