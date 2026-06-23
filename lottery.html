@@ -1062,7 +1062,7 @@
                         });
                     }
                     const finalRed = referNumbers.length > 0 ? subtractOnce(allNumbers, referNumbers) : allNumbers.slice(0, -1);
-                    result = matchSsqPrize(selection.numbers.red, selection.numbers.blue, finalRed, winBlue);
+                    result = matchSsqPrize(selection.numbers.red.map(Number), selection.numbers.blue.map(Number), finalRed, winBlue);
                 } else if (selection.lottery === 'dlt') {
                     // 前区=去掉后区的部分，后区=refernumber 或最后2个
                     const winBack = referNumbers.length > 0 ? referNumbers : allNumbers.slice(-2);
@@ -1076,7 +1076,7 @@
                         });
                     }
                     const winFront = referNumbers.length > 0 ? subtractOnce(allNumbers, referNumbers) : allNumbers.slice(0, -2);
-                    result = matchDltPrize(selection.numbers.front, selection.numbers.back, winFront, winBack);
+                    result = matchDltPrize(selection.numbers.front.map(Number), selection.numbers.back.map(Number), winFront, winBack);
                 } else {
                     return { success: false, error: '不支持的彩种' };
                 }
@@ -1203,7 +1203,7 @@
                     return { success: false, error: '开奖号码数据异常' };
                 }
 
-                const userNumbers = selection.numbers.all;
+                const userNumbers = selection.numbers.all.map(Number);
                 const selectCount = selection.kl8Count || userNumbers.length;
                 const result = matchKl8Prize(userNumbers, winNumbers, selectCount);
 
