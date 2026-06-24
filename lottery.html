@@ -1204,7 +1204,7 @@
                 }
 
                 const userNumbers = selection.numbers.all.map(Number);
-                const selectCount = selection.kl8Count || userNumbers.length;
+                const selectCount = userNumbers.length;  // 以实际选号数量为准，避免 kl8Count 与实际不符导致误判
                 const result = matchKl8Prize(userNumbers, winNumbers, selectCount);
 
                 return {
@@ -1269,7 +1269,7 @@
                 const userNums = selection.numbers.all;
                 const winNums = historyItem.balls || [];
                 const matchCount = userNums.filter(n => winNums.includes(n)).length;
-                const selectCount = selection.kl8Count || 10;
+                const selectCount = userNums.length;  // 以实际选号数量为准，避免 kl8Count 与实际不符导致误判
                 
                 const prizeMap = {
                     10: { 10: { level: 1, prize: 5000000 }, 9: { level: 2, prize: 8000 }, 8: { level: 3, prize: 720 }, 7: { level: 4, prize: 80 }, 6: { level: 5, prize: 5 }, 5: { level: 6, prize: 3 }, 0: { level: 7, prize: 2 } },
